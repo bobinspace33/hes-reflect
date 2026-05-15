@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAuthed } from "@/lib/auth";
-import { updateThemeLabel, updateThemeReflection } from "@/lib/repo";
+import { deleteTheme, updateThemeLabel, updateThemeReflection } from "@/lib/repo";
 
 const PatchSchema = z
   .object({
@@ -36,4 +36,19 @@ export async function PATCH(
       { status: 400 },
     );
   }
+}
+
+export async function DELETE(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  if (!(await isAuthed())) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+  const { id } = await ctx.params;
+  const removed = await deleteTheme(id);
+  if (!removed) {
+    return NextResponse.json({ ok: false, error: "Theme not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true });
 }

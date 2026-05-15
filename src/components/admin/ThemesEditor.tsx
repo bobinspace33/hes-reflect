@@ -107,6 +107,7 @@ function ThemeRow({
   const [quoteIn, setQuoteIn] = useState("");
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingTheme, setDeletingTheme] = useState(false);
   const palette = THEME_PALETTE[theme.color];
 
   useEffect(() => {
@@ -185,6 +186,28 @@ function ThemeRow({
     }
   }
 
+  async function removeEntireTheme() {
+    const name = theme.label.trim() || "this theme";
+    if (
+      !confirm(
+        `Delete "${name}" entirely? All highlights and visitor reflections tied to this theme will be removed. This cannot be undone.`,
+      )
+    )
+      return;
+    setDeletingTheme(true);
+    try {
+      const res = await fetch(`/api/admin/themes/${theme.id}`, { method: "DELETE" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !("ok" in j) || !j.ok) {
+        alert((j as { error?: string }).error ?? "Delete failed");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingTheme(false);
+    }
+  }
+
   async function removeSource(id: string) {
     if (!confirm("Remove this highlight?")) return;
     setDeletingId(id);
@@ -229,8 +252,24 @@ function ThemeRow({
             />
           </div>
         </div>
-        <div className="text-[11px] font-mono text-silver-300/60">
-          {theme.sources.length} highlight{theme.sources.length === 1 ? "" : "s"}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-[11px] font-mono text-silver-300/60 text-right whitespace-nowrap">
+            {theme.sources.length} highlight{theme.sources.length === 1 ? "" : "s"}
+          </div>
+          <button
+            type="button"
+            title="Delete entire theme"
+            onClick={() => void removeEntireTheme()}
+            disabled={deletingTheme}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wider text-red-300/90 hover:bg-red-500/15 border border-red-500/30 disabled:opacity-40"
+          >
+            {deletingTheme ? (
+              <Loader2 size={14} className="animate-spin shrink-0" />
+            ) : (
+              <Trash2 size={14} className="shrink-0" />
+            )}
+            Delete theme
+          </button>
         </div>
       </div>
 

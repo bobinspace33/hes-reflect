@@ -34,6 +34,7 @@ export function DocumentArray({
   const scrollDir = useRef(0); // -1 left, 0 stop, +1 right
   const activeThemeId = useUI((s) => s.activeThemeId);
   const searchHits = useUI((s) => s.searchHits);
+  const setActiveTheme = useUI((s) => s.setActiveTheme);
 
   const activeTheme = themes.find((t) => t.id === activeThemeId) ?? null;
 
@@ -222,13 +223,34 @@ export function DocumentArray({
     }
   }, []);
 
+  const exitThemeSpread = useCallback(() => {
+    setActiveTheme(null);
+  }, [setActiveTheme]);
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-0 flex flex-col justify-center"
+      className={
+        "relative w-full h-full min-h-0 flex flex-col " +
+        (spreadTheme ? "" : "justify-center")
+      }
       role="presentation"
     >
-      <div className="relative flex-1 min-h-0 w-full min-w-0">
+      {spreadTheme ? (
+        <button
+          type="button"
+          onClick={exitThemeSpread}
+          aria-label="Exit theme view"
+          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent hover:bg-transparent border-0 p-0 cursor-pointer focus-visible:outline focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
+        />
+      ) : null}
+      <div
+        className={
+          spreadTheme
+            ? "relative shrink-0 w-full min-w-0 z-10"
+            : "relative flex-1 min-h-0 w-full min-w-0"
+        }
+      >
         {/* Edge-hover autoscroll — works for blurred fan beneath theme cites too */}
         <div
           role="presentation"
@@ -250,13 +272,19 @@ export function DocumentArray({
         {/* Backdrop: full carousel order; cites become ghost slots so neighbors stay overlapped */}
         <div
           ref={scrollRef}
-          className="relative z-10 h-full w-full overflow-x-auto overflow-y-hidden overscroll-x-contain carousel-hide-scrollbar touch-pan-x"
+          className={
+            "relative z-10 w-full overflow-x-auto overflow-y-hidden overscroll-x-contain carousel-hide-scrollbar touch-pan-x " +
+            (spreadTheme ? "h-auto" : "h-full")
+          }
           onWheel={onCarouselWheel}
         >
           <LayoutGroup id="documents-stage">
             <motion.div
               layoutRoot
-              className="flex min-h-full flex-row items-end justify-center px-2 pb-9 pt-20"
+              className={
+                "flex flex-row items-end justify-center px-2 pb-9 pt-20 " +
+                (spreadTheme ? "min-h-0" : "min-h-full")
+              }
               style={{
                 width: "max-content",
                 marginLeft: "auto",
@@ -395,6 +423,14 @@ export function DocumentArray({
           </div>
         ) : null}
       </div>
+      {spreadTheme ? (
+        <button
+          type="button"
+          onClick={exitThemeSpread}
+          aria-label="Exit theme view"
+          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent hover:bg-transparent border-0 p-0 cursor-pointer focus-visible:outline focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
+        />
+      ) : null}
     </div>
   );
 }

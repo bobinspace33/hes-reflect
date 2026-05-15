@@ -195,6 +195,13 @@ export async function updateThemeLabel(id: string, label: string): Promise<void>
   await sql`UPDATE themes SET label = ${trimmed}, updated_at = NOW() WHERE id = ${id}`;
 }
 
+/** Removes the theme and cascades to theme_sources and reflections. */
+export async function deleteTheme(id: string): Promise<boolean> {
+  await repoReady();
+  const { rows } = await sql.query(`DELETE FROM themes WHERE id = $1 RETURNING id`, [id]);
+  return rows.length > 0;
+}
+
 export async function replaceAllThemes(
   themes: ThemeRecord[],
   sources: ThemeSource[],
