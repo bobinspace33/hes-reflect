@@ -84,7 +84,7 @@ export function MainExperience({
           Bob Kelly
         </h1>
         <p className="text-silver-700 font-mono text-[10px] tracking-[0.22em] uppercase mt-1.5">
-          select reflection artifacts · select theme to view reflections
+          read and search course assignments · select theme to view reflection highlights
         </p>
         {!demoMode ? (
           <div className="mt-2 flex flex-wrap justify-center gap-2 px-4">

@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Trash2, Upload, Loader2, FileText } from "lucide-react";
+import { Eye, EyeOff, Trash2, Upload, Loader2, FileText, ChevronUp, ChevronDown } from "lucide-react";
 import type { DocumentRecord } from "@/types";
 
 export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [reorderError, setReorderError] = useState<string | null>(null);
 
   async function toggleVisible(d: DocumentRecord) {
     setBusy(d.id);
@@ -23,6 +25,36 @@ export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function reorderByIds(orderedIds: string[]) {
+    setReorderError(null);
+    setReordering(true);
+    try {
+      const res = await fetch("/api/admin/documents", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ order: orderedIds }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !("ok" in j) || !j.ok) {
+        throw new Error((j as { error?: string }).error ?? "Reorder failed");
+      }
+      router.refresh();
+    } catch (e) {
+      setReorderError((e as Error).message);
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  async function moveDocument(fromIndex: number, delta: number) {
+    const toIndex = fromIndex + delta;
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= documents.length) return;
+    const ordered = [...documents];
+    const [picked] = ordered.splice(fromIndex, 1);
+    ordered.splice(toIndex, 0, picked);
+    await reorderByIds(ordered.map((d) => d.id));
   }
 
   async function remove(d: DocumentRecord) {
@@ -64,9 +96,18 @@ export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
     <div className="space-y-8">
       <div>
         <h2 className="text-lg font-light mb-1">Documents</h2>
-        <p className="text-silver-300/60 text-sm font-mono">
-          Toggle visibility, remove, or upload new .docx files.
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-silver-300/60 text-sm font-mono">
+          <p>
+            Reorder appearance on the site (top = first). Toggle visibility, remove, or upload new
+            .docx files.
+          </p>
+          {reordering ? (
+            <span className="inline-flex items-center gap-1.5 text-silver-300/55 text-xs">
+              <Loader2 size={14} className="animate-spin" />
+              Saving order…
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <form
@@ -107,13 +148,17 @@ export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
         </p>
       </form>
 
+      {reorderError ? (
+        <div className="text-red-300/90 text-xs font-mono">{reorderError}</div>
+      ) : null}
+
       <ul className="space-y-2">
         {documents.length === 0 ? (
           <li className="text-silver-300/55 font-mono text-sm">
             No documents yet. Upload one above or run <code>npm run ingest && npm run db:seed</code>.
           </li>
         ) : null}
-        {documents.map((d) => (
+        {documents.map((d, idx) => (
           <li
             key={d.id}
             className="flex items-center gap-3 px-4 py-3 rounded-xl border border-silver-700 bg-silver-800/40"
@@ -133,9 +178,31 @@ export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
             >
               Preview
             </a>
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => moveDocument(idx, -1)}
+                disabled={reordering || busy !== null || idx <= 0}
+                className="p-1 rounded-md hover:bg-silver-700 disabled:opacity-30 disabled:cursor-not-allowed text-silver-300"
+                aria-label="Move document up"
+                title="Move up"
+              >
+                <ChevronUp size={18} strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveDocument(idx, 1)}
+                disabled={reordering || busy !== null || idx >= documents.length - 1}
+                className="p-1 rounded-md hover:bg-silver-700 disabled:opacity-30 disabled:cursor-not-allowed text-silver-300"
+                aria-label="Move document down"
+                title="Move down"
+              >
+                <ChevronDown size={18} strokeWidth={1.75} />
+              </button>
+            </div>
             <button
               onClick={() => toggleVisible(d)}
-              disabled={busy === d.id}
+              disabled={busy === d.id || reordering}
               className="p-2 rounded-md hover:bg-silver-700 disabled:opacity-40"
               aria-label={d.visible ? "Hide" : "Show"}
               title={d.visible ? "Hide from site" : "Show on site"}
@@ -144,7 +211,7 @@ export function DocumentsAdmin({ documents }: { documents: DocumentRecord[] }) {
             </button>
             <button
               onClick={() => remove(d)}
-              disabled={busy === d.id}
+              disabled={busy === d.id || reordering}
               className="p-2 rounded-md hover:bg-red-500/20 text-red-300/80 hover:text-red-200 disabled:opacity-40"
               aria-label="Delete"
             >
