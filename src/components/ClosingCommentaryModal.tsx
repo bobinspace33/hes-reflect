@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useUI } from "@/store/ui";
 import { THEME_PALETTE } from "@/lib/colors";
+import { ReflectionWallSection } from "@/components/ReflectionWallSection";
 
 export function ClosingCommentaryModal({ body }: { body: string }) {
   const open = useUI((s) => s.closingCommentaryOpen);
@@ -66,6 +67,7 @@ export function ClosingCommentaryModal({ body }: { body: string }) {
                 (No closing commentary yet — add one in Admin → Themes.)
               </div>
             )}
+            <ReflectionWallSection variant="closing" />
           </section>
         </motion.aside>
       ) : null}

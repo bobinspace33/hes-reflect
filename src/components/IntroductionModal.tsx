@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useUI } from "@/store/ui";
 import { THEME_PALETTE } from "@/lib/colors";
+import { ReflectionWallSection } from "@/components/ReflectionWallSection";
 
 export function IntroductionModal({ body }: { body: string }) {
   const open = useUI((s) => s.introductionOpen);
@@ -66,6 +67,7 @@ export function IntroductionModal({ body }: { body: string }) {
                 (No introduction has been written yet — add one in Admin → Themes.)
               </div>
             )}
+            <ReflectionWallSection variant="intro" />
           </section>
         </motion.aside>
       ) : null}
