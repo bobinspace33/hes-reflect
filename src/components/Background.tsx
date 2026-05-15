@@ -2,19 +2,27 @@
 
 import { useEffect, useState } from "react";
 
+/** Default site background; others are fallbacks if this file is missing. */
+const DEFAULT_BACKGROUND = "/backgrounds/background4.png";
+
 const KNOWN_BACKGROUNDS = [
+  DEFAULT_BACKGROUND,
   "/backgrounds/background5.png",
-  "/backgrounds/background4.png",
   "/backgrounds/background3.png",
   "/backgrounds/background2.png",
   "/backgrounds/Slide 16_9 - 22.png",
 ];
 
 export function Background({ src }: { src?: string }) {
-  const [resolved, setResolved] = useState<string | null>(src ?? null);
+  const [resolved, setResolved] = useState<string | null>(() =>
+    src ? encodeURI(src) : encodeURI(DEFAULT_BACKGROUND),
+  );
 
   useEffect(() => {
-    if (src) return;
+    if (src) {
+      setResolved(encodeURI(src));
+      return;
+    }
     // Probe in priority order; use the first that loads.
     let cancelled = false;
     (async () => {
