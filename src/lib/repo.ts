@@ -153,6 +153,13 @@ export async function updateThemeReflection(
   await sql`UPDATE themes SET personal_reflection = ${personalReflection}, updated_at = NOW() WHERE id = ${id}`;
 }
 
+export async function updateThemeLabel(id: string, label: string): Promise<void> {
+  await repoReady();
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("Theme title cannot be empty");
+  await sql`UPDATE themes SET label = ${trimmed}, updated_at = NOW() WHERE id = ${id}`;
+}
+
 export async function replaceAllThemes(
   themes: ThemeRecord[],
   sources: ThemeSource[],

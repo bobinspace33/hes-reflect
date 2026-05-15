@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAuthed } from "@/lib/auth";
-import { updateThemeReflection } from "@/lib/repo";
+import { updateThemeLabel, updateThemeReflection } from "@/lib/repo";
 
-const Schema = z.object({ personalReflection: z.string().max(20000) });
+const PatchSchema = z
+  .object({
+    personalReflection: z.string().max(20000).optional(),
+    label: z.string().min(1).max(120).optional(),
+  })
+  .strict()
+  .refine((b) => b.personalReflection !== undefined || b.label !== undefined, {
+    message: "Provide personalReflection and/or label",
+  });
 
 export async function PATCH(
   req: Request,
@@ -14,8 +22,13 @@ export async function PATCH(
   }
   const { id } = await ctx.params;
   try {
-    const { personalReflection } = Schema.parse(await req.json());
-    await updateThemeReflection(id, personalReflection);
+    const body = PatchSchema.parse(await req.json());
+    if (body.personalReflection !== undefined) {
+      await updateThemeReflection(id, body.personalReflection);
+    }
+    if (body.label !== undefined) {
+      await updateThemeLabel(id, body.label.trim());
+    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(

@@ -74,7 +74,8 @@ export function ThemesEditor({
       ) : null}
 
       <div className="rounded-xl border border-silver-700 bg-silver-800/30 px-4 py-3 text-silver-300/80 text-xs font-mono leading-relaxed">
-        <strong className="text-silver-200">Manual highlights</strong> are kept when you re-analyze
+        <strong className="text-silver-200">Theme titles</strong> can be edited in each card (same Save as your
+        reflection). <strong className="text-silver-200">Manual highlights</strong> are kept when you re-analyze
         (matched by theme name). Analysis-generated highlights are replaced each run.
       </div>
 
@@ -97,6 +98,7 @@ function ThemeRow({
   documents: DocumentRecord[];
 }) {
   const router = useRouter();
+  const [label, setLabel] = useState(theme.label);
   const [text, setText] = useState(theme.personalReflection);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -108,8 +110,9 @@ function ThemeRow({
   const palette = THEME_PALETTE[theme.color];
 
   useEffect(() => {
+    setLabel(theme.label);
     setText(theme.personalReflection);
-  }, [theme.id, theme.personalReflection]);
+  }, [theme.id, theme.label, theme.personalReflection]);
 
   useEffect(() => {
     if (documents.length > 0 && !documents.some((d) => d.id === docId)) {
@@ -123,16 +126,34 @@ function ThemeRow({
     ? Math.min(Math.max(1, parsedPage), selectedDoc.pageCount)
     : 1;
 
+  const labelDirty = label.trim() !== theme.label;
+  const reflectionDirty = text !== theme.personalReflection;
+  const dirty = labelDirty || reflectionDirty;
+
   async function save() {
+    if (!dirty) return;
+    const trimmed = label.trim();
+    if (!trimmed) {
+      alert("Theme title cannot be empty.");
+      return;
+    }
     setSaving(true);
     try {
+      const payload: { personalReflection?: string; label?: string } = {};
+      if (reflectionDirty) payload.personalReflection = text;
+      if (labelDirty) payload.label = trimmed;
       const res = await fetch(`/api/admin/themes/${theme.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ personalReflection: text }),
+        body: JSON.stringify(payload),
       });
-      const j = await res.json();
-      if (j.ok) setSavedAt(Date.now());
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !("ok" in j) || !j.ok) {
+        alert((j as { error?: string }).error ?? "Save failed");
+        return;
+      }
+      setSavedAt(Date.now());
+      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -185,15 +206,28 @@ function ThemeRow({
         className="px-5 py-3 flex items-center justify-between"
         style={{ background: `linear-gradient(135deg, ${palette.soft}, rgba(255,255,255,0.02))` }}
       >
-        <div className="flex items-center gap-3">
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ background: palette.accent }}
-          />
-          <h3 className="font-medium text-silver-50">{theme.label}</h3>
-          <span className="text-[10px] font-mono text-silver-300/55 uppercase tracking-wider">
-            {theme.color}
-          </span>
+        <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{ background: palette.accent }}
+            />
+            <span className="text-[10px] font-mono text-silver-300/55 uppercase tracking-wider">
+              {theme.color}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-silver-300/50 mb-1">
+              Theme title
+            </div>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              maxLength={120}
+              className="w-full max-w-md bg-silver-900/90 border border-silver-600/80 rounded-md px-3 py-1.5 text-sm font-medium text-silver-50 outline-none focus:border-gold-400"
+            />
+          </div>
         </div>
         <div className="text-[11px] font-mono text-silver-300/60">
           {theme.sources.length} highlight{theme.sources.length === 1 ? "" : "s"}
@@ -218,7 +252,7 @@ function ThemeRow({
             </div>
             <button
               onClick={save}
-              disabled={saving || text === theme.personalReflection}
+              disabled={saving || !dirty}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-silver-700 hover:bg-silver-600 text-silver-50 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
