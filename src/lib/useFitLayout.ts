@@ -1,87 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 const LETTER_ASPECT = 8.5 / 11; // width / height = 0.7727
+const META_HEIGHT = 34; // title strip + shadow under page
+const CARD_MIN = 120;
+const CARD_MAX = 300;
 
-const GAP_X = 24;
-const GAP_Y = 28;
-const META_HEIGHT = 30; // title strip + shadow plate below the page
-const CARD_MIN = 110;
-const CARD_MAX = 360;
-
-export type FitLayout = {
+export type CarouselLayout = {
   cardWidth: number;
-  rows: number;
-  perRow: number;
+  /** horizontal overlap between adjacent cards (each card after the first uses -marginLeft) */
+  overlap: number;
 };
 
 /**
- * Returns a ref to attach to the documents *container* + a layout that
- * sizes cards so all of them fit inside that container without scrolling.
- *
- * Strategy: try every plausible row count, pick the one that maximizes
- * the resulting card width (constrained by both width-per-row and
- * height-per-row).
+ * Single-row carousel: size each page from the container height only.
+ * Overlap scales with card width so the fan stays readable.
  */
-export function useFitLayout(docCount: number): {
-  containerRef: React.RefObject<HTMLDivElement>;
-  layout: FitLayout;
+export function useCarouselLayout(): {
+  containerRef: RefObject<HTMLDivElement>;
+  layout: CarouselLayout;
 } {
-  const containerRef = useRef<HTMLDivElement>(null!) as React.RefObject<HTMLDivElement>;
-  const [layout, setLayout] = useState<FitLayout>({
-    cardWidth: 220,
-    rows: 2,
-    perRow: Math.max(1, Math.ceil(docCount / 2)),
+  const containerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>;
+  const [layout, setLayout] = useState<CarouselLayout>({
+    cardWidth: 200,
+    overlap: 36,
   });
 
   useEffect(() => {
-    if (docCount === 0) return;
     const node = containerRef.current;
     if (!node) return;
 
     function compute() {
       if (!node) return;
-      const rect = node.getBoundingClientRect();
-      const W = Math.max(0, rect.width);
-      const H = Math.max(0, rect.height);
-      if (W < 20 || H < 20) return;
+      const H = Math.max(0, node.getBoundingClientRect().height);
+      if (H < 40) return;
 
-      let best: (FitLayout & { score: number }) | null = null;
-
-      // Try every row count from 1..docCount (capped at something reasonable)
-      const maxRows = Math.min(docCount, 5);
-      for (let rows = 1; rows <= maxRows; rows++) {
-        const perRow = Math.ceil(docCount / rows);
-
-        const widthFromW = (W - (perRow - 1) * GAP_X) / perRow;
-        const rowHeight = (H - (rows - 1) * GAP_Y) / rows;
-        const widthFromH = Math.max(0, rowHeight - META_HEIGHT) * LETTER_ASPECT;
-
-        let cardWidth = Math.min(widthFromW, widthFromH);
-        cardWidth = Math.max(0, Math.min(CARD_MAX, cardWidth));
-
-        if (cardWidth <= 0) continue;
-        const score = cardWidth;
-        if (!best || score > best.score) {
-          best = { cardWidth: Math.floor(cardWidth), rows, perRow, score };
-        }
-      }
-
-      if (!best) {
-        setLayout({ cardWidth: CARD_MIN, rows: 1, perRow: docCount });
-        return;
-      }
-
-      const cardWidth = Math.max(CARD_MIN, best.cardWidth);
-      setLayout({ cardWidth, rows: best.rows, perRow: best.perRow });
+      const raw = Math.floor((H - META_HEIGHT) * LETTER_ASPECT);
+      const cardWidth = Math.min(CARD_MAX, Math.max(CARD_MIN, raw));
+      const overlap = Math.min(64, Math.max(24, Math.round(cardWidth * 0.15)));
+      setLayout({ cardWidth, overlap });
     }
 
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(node);
     return () => ro.disconnect();
-  }, [docCount]);
+  }, []);
 
   return { containerRef, layout };
 }

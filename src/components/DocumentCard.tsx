@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, Reorder } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUI } from "@/store/ui";
 import { PdfPage, type Highlight } from "@/components/PdfPage";
@@ -95,15 +95,7 @@ export function DocumentCard({
   const scale = isFocusedHere ? 0 : Math.max(wheelZoom, hovered ? 1.07 : 1) * (emphasized ? 1.1 : 1);
 
   return (
-    <Reorder.Item
-      value={doc.id}
-      as="div"
-      layout
-      whileDrag={{ scale: 1.04, zIndex: 50, boxShadow: "0 25px 60px rgba(0,0,0,0.35)" }}
-      transition={{ type: "spring", stiffness: 280, damping: 30 }}
-      style={{ touchAction: "none" }}
-      className="select-none"
-    >
+    <div className="select-none">
       <motion.div
         layoutId={`doc-${doc.id}`}
         ref={wrapperRef}
@@ -178,6 +170,6 @@ export function DocumentCard({
           ) : null}
         </div>
       </motion.div>
-    </Reorder.Item>
+    </div>
   );
 }

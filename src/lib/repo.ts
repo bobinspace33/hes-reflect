@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db";
+import { sql, ensureSchema } from "@/lib/db";
 import type {
   DocumentRecord,
   ReflectionRecord,
@@ -53,9 +53,14 @@ function mapReflection(row: any): ReflectionRecord {
   };
 }
 
+async function repoReady(): Promise<void> {
+  await ensureSchema();
+}
+
 export async function listDocuments(
   opts: { onlyVisible?: boolean } = {},
 ): Promise<DocumentRecord[]> {
+  await repoReady();
   const { onlyVisible = true } = opts;
   const { rows } = onlyVisible
     ? await sql`SELECT * FROM documents WHERE visible = TRUE ORDER BY "order" ASC, created_at ASC`
@@ -64,16 +69,19 @@ export async function listDocuments(
 }
 
 export async function getDocument(id: string): Promise<DocumentRecord | null> {
+  await repoReady();
   const { rows } = await sql`SELECT * FROM documents WHERE id = ${id} LIMIT 1`;
   return rows[0] ? mapDoc(rows[0]) : null;
 }
 
 export async function listThemes(): Promise<ThemeRecord[]> {
+  await repoReady();
   const { rows } = await sql`SELECT * FROM themes ORDER BY "order" ASC`;
   return rows.map(mapTheme);
 }
 
 export async function listThemesWithSources(): Promise<ThemeWithSources[]> {
+  await repoReady();
   const themes = await listThemes();
   const ids = themes.map((t) => t.id);
   if (ids.length === 0) return themes.map((t) => ({ ...t, sources: [] }));
@@ -90,6 +98,7 @@ export async function listThemesWithSources(): Promise<ThemeWithSources[]> {
 }
 
 export async function listReflections(themeId: string): Promise<ReflectionRecord[]> {
+  await repoReady();
   const { rows } =
     await sql`SELECT * FROM reflections WHERE theme_id = ${themeId} ORDER BY created_at DESC LIMIT 200`;
   return rows.map(mapReflection);
@@ -101,6 +110,7 @@ export async function createReflection(input: {
   name: string | null;
   body: string;
 }): Promise<ReflectionRecord> {
+  await repoReady();
   const { rows } = await sql`
     INSERT INTO reflections (id, theme_id, name, body)
     VALUES (${input.id}, ${input.themeId}, ${input.name}, ${input.body})
@@ -109,10 +119,12 @@ export async function createReflection(input: {
 }
 
 export async function deleteReflection(id: string): Promise<void> {
+  await repoReady();
   await sql`DELETE FROM reflections WHERE id = ${id}`;
 }
 
 export async function upsertTheme(t: ThemeRecord): Promise<void> {
+  await repoReady();
   await sql`
     INSERT INTO themes (id, label, color, "order", personal_reflection, updated_at)
     VALUES (${t.id}, ${t.label}, ${t.color}, ${t.order}, ${t.personalReflection}, NOW())
@@ -128,6 +140,7 @@ export async function updateThemeReflection(
   id: string,
   personalReflection: string,
 ): Promise<void> {
+  await repoReady();
   await sql`UPDATE themes SET personal_reflection = ${personalReflection}, updated_at = NOW() WHERE id = ${id}`;
 }
 
@@ -135,6 +148,7 @@ export async function replaceAllThemes(
   themes: ThemeRecord[],
   sources: ThemeSource[],
 ): Promise<void> {
+  await repoReady();
   await sql.query("BEGIN");
   try {
     await sql.query("DELETE FROM theme_sources");
@@ -177,6 +191,7 @@ export async function recordAnalysisRun(input: {
   status: "running" | "complete" | "error";
   error?: string;
 }): Promise<void> {
+  await repoReady();
   if (input.status === "running") {
     await sql`INSERT INTO analysis_runs (id, status) VALUES (${input.id}, 'running')`;
   } else {
@@ -185,6 +200,7 @@ export async function recordAnalysisRun(input: {
 }
 
 export async function upsertDocument(d: DocumentRecord): Promise<void> {
+  await repoReady();
   await sql.query(
     `INSERT INTO documents (id, slug, title, pdf_url, page_count, page_texts, "order", visible)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
@@ -209,10 +225,12 @@ export async function upsertDocument(d: DocumentRecord): Promise<void> {
 }
 
 export async function deleteDocument(id: string): Promise<void> {
+  await repoReady();
   await sql`DELETE FROM documents WHERE id = ${id}`;
 }
 
 export async function reorderDocuments(orderedIds: string[]): Promise<void> {
+  await repoReady();
   await sql.query("BEGIN");
   try {
     for (let i = 0; i < orderedIds.length; i++) {
@@ -226,5 +244,6 @@ export async function reorderDocuments(orderedIds: string[]): Promise<void> {
 }
 
 export async function setDocumentVisibility(id: string, visible: boolean): Promise<void> {
+  await repoReady();
   await sql`UPDATE documents SET visible = ${visible} WHERE id = ${id}`;
 }

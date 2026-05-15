@@ -2,6 +2,38 @@ import { sql } from "@vercel/postgres";
 
 export { sql };
 
+/** Split multi-statement schema into runnable chunks (matches scripts/db-init.ts). */
+export function getSchemaStatements(): string[] {
+  return SCHEMA_SQL.split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Call before repo queries when Postgres is configured. Idempotent CREATE IF NOT EXISTS (safe on cold starts). */
+let schemaCache: Promise<void> | undefined;
+
+export async function ensureSchema(): Promise<void> {
+  const url =
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    "";
+  if (!url) return;
+
+  schemaCache ??= (async () => {
+    const stmts = getSchemaStatements();
+    for (const stmt of stmts) {
+      await sql.query(stmt);
+    }
+  })();
+
+  try {
+    await schemaCache;
+  } catch (e) {
+    schemaCache = undefined;
+    throw e;
+  }
+}
+
 export const SCHEMA_SQL = /* sql */ `
   CREATE TABLE IF NOT EXISTS documents (
     id            TEXT PRIMARY KEY,

@@ -34,10 +34,11 @@ on a public wall.
    - `ADMIN_SESSION_SECRET` — a random 32+ char string.
    - `BLOB_READ_WRITE_TOKEN` — only required for admin doc uploads. From Vercel → Storage → Blob.
 
-3. **Initialize the database**
+3. **Initialize the database** (recommended locally; ensures empty DBs match the codebase)
    ```bash
    npm run db:init
    ```
+   On deployed Vercel/Neon, the app applies the same `CREATE TABLE IF NOT EXISTS` DDL automatically on first use, so `/admin` no longer crashes with `relation "documents" does not exist`. You **still** must run **`npm run db:seed`** (below) once to load document rows themes need.
 
 4. **Convert documents → PDFs and extract text**
    ```bash
@@ -45,7 +46,7 @@ on a public wall.
    ```
    This launches a headless Chromium (bundled with Puppeteer) to render each `.docx` as a Letter-sized PDF and produces per-page plain text. Output: `public/pdfs/*.pdf` + `data/seed-documents.json`.
 
-5. **Seed the database from the ingest output**
+5. **Seed the database from the ingest output** (required for themed analysis; empty tables after step 4 will show zero documents until you seed)
    ```bash
    npm run db:seed
    ```

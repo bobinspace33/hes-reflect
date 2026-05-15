@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useUI } from "@/store/ui";
 import { DocumentArray, getDocumentHighlightsFn } from "@/components/DocumentArray";
 import { FocusOverlay } from "@/components/FocusOverlay";
@@ -22,16 +22,6 @@ export function MainExperience({
 }) {
   const activeThemeId = useUI((s) => s.activeThemeId);
   const searchHits = useUI((s) => s.searchHits);
-  const localOrder = useUI((s) => s.localOrder);
-  const setLocalOrder = useUI((s) => s.setLocalOrder);
-
-  // Initialize localOrder from documents on first load
-  useEffect(() => {
-    if (localOrder === null && documents.length > 0) {
-      setLocalOrder(documents.map((d) => d.id));
-    }
-  }, [documents, localOrder, setLocalOrder]);
-
   const highlightsFor = useMemo(
     () => getDocumentHighlightsFn(themes, activeThemeId, searchHits),
     [themes, activeThemeId, searchHits],
@@ -81,7 +71,7 @@ export function MainExperience({
           HES <span className="text-gold-300">Reflection</span>
         </h1>
         <p className="text-silver-300/55 text-[10px] font-mono tracking-[0.22em] uppercase mt-1.5">
-          A reading in process · click · drag · scroll-zoom
+          A reading in process · hover edges to browse · wheel zoom on page
         </p>
       </header>
 

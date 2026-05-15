@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { put } from "@vercel/blob";
 import { isAuthed } from "@/lib/auth";
-import { sql } from "@/lib/db";
+import { ensureSchema, sql } from "@/lib/db";
 import { upsertDocument } from "@/lib/repo";
 import { createRequire } from "node:module";
 
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
   if (!(await isAuthed())) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  await ensureSchema();
   const form = await req.formData();
   const file = form.get("file");
   const title = (form.get("title") as string | null)?.trim();
