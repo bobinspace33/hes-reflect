@@ -43,6 +43,15 @@ export type ReflectionRecord = {
   createdAt: string;
 };
 
+/** Visitor posts on introduction / closing modals (`site_wall_posts.wall_key`). */
+export type SiteWallPostRecord = {
+  id: string;
+  wallKey: string;
+  name: string | null;
+  body: string;
+  createdAt: string;
+};
+
 export type HighlightHit = {
   documentId: string;
   pageNumber: number;

@@ -3,6 +3,7 @@ import { sql, ensureSchema } from "@/lib/db";
 import type {
   DocumentRecord,
   ReflectionRecord,
+  SiteWallPostRecord,
   ThemeRecord,
   ThemeSource,
   ThemeWithSources,
@@ -47,6 +48,19 @@ function mapReflection(row: any): ReflectionRecord {
   return {
     id: row.id,
     themeId: row.theme_id,
+    name: row.name,
+    body: row.body,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at),
+  };
+}
+
+function mapSiteWallPost(row: any): SiteWallPostRecord {
+  return {
+    id: row.id,
+    wallKey: row.wall_key,
     name: row.name,
     body: row.body,
     createdAt:
@@ -125,6 +139,27 @@ export async function createReflection(input: {
     VALUES (${input.id}, ${input.themeId}, ${input.name}, ${input.body})
     RETURNING *`;
   return mapReflection(rows[0]);
+}
+
+export async function listSiteWallPosts(wallKey: string): Promise<SiteWallPostRecord[]> {
+  await repoReady();
+  const { rows } =
+    await sql`SELECT * FROM site_wall_posts WHERE wall_key = ${wallKey} ORDER BY created_at DESC LIMIT 200`;
+  return rows.map(mapSiteWallPost);
+}
+
+export async function createSiteWallPost(input: {
+  id: string;
+  wallKey: string;
+  name: string | null;
+  body: string;
+}): Promise<SiteWallPostRecord> {
+  await repoReady();
+  const { rows } = await sql`
+    INSERT INTO site_wall_posts (id, wall_key, name, body)
+    VALUES (${input.id}, ${input.wallKey}, ${input.name}, ${input.body})
+    RETURNING *`;
+  return mapSiteWallPost(rows[0]);
 }
 
 export async function deleteReflection(id: string): Promise<void> {

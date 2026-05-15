@@ -79,6 +79,15 @@ export const SCHEMA_SQL = /* sql */ `
   );
   CREATE INDEX IF NOT EXISTS reflections_theme_idx ON reflections(theme_id, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS site_wall_posts (
+    id          TEXT PRIMARY KEY,
+    wall_key    TEXT NOT NULL,
+    name        TEXT,
+    body        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS site_wall_posts_key_idx ON site_wall_posts(wall_key, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS site_strings (
     key         TEXT PRIMARY KEY,
     body        TEXT NOT NULL DEFAULT '',

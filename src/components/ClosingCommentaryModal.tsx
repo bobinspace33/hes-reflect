@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useUI } from "@/store/ui";
 import { THEME_PALETTE } from "@/lib/colors";
-import { ReflectionWallSection } from "@/components/ReflectionWallSection";
+import { SITE_CLOSING_COMMENTARY_KEY } from "@/lib/site-copy";
+import { SiteModalWall } from "@/components/SiteModalWall";
 
 export function ClosingCommentaryModal({ body }: { body: string }) {
   const open = useUI((s) => s.closingCommentaryOpen);
@@ -57,18 +58,20 @@ export function ClosingCommentaryModal({ body }: { body: string }) {
             </button>
           </div>
 
-          <section className="flex-1 min-h-0 overflow-y-auto thin-scroll px-5 py-4">
-            {body.trim() ? (
-              <div className="text-silver-100 font-mono text-[13px] leading-relaxed whitespace-pre-wrap">
-                {body}
-              </div>
-            ) : (
-              <div className="text-silver-300/55 font-mono text-[12px] italic">
-                (No closing commentary yet — add one in Admin → Themes.)
-              </div>
-            )}
-            <ReflectionWallSection variant="closing" />
-          </section>
+          <div className="flex flex-1 min-h-0 flex-col">
+            <section className="flex-none max-h-[min(38vh,320px)] min-h-0 overflow-y-auto thin-scroll px-5 py-4 border-b border-white/10">
+              {body.trim() ? (
+                <div className="text-silver-100 font-mono text-[13px] leading-relaxed whitespace-pre-wrap">
+                  {body}
+                </div>
+              ) : (
+                <div className="text-silver-300/55 font-mono text-[12px] italic">
+                  (No closing commentary yet — add one in Admin → Themes.)
+                </div>
+              )}
+            </section>
+            <SiteModalWall wallKey={SITE_CLOSING_COMMENTARY_KEY} palette={palette} />
+          </div>
         </motion.aside>
       ) : null}
     </AnimatePresence>
