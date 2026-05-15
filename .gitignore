@@ -1,0 +1,18 @@
+node_modules
+.next
+out
+dist
+
+.DS_Store
+.env
+.env.local
+.env.*.local
+
+# PDFs and seed JSON ARE committed so the initial deploy has the documents.
+# To regenerate locally:  npm run ingest
+# (they're produced from the .docx files in /documents)
+
+*.log
+.vercel
+
+tsconfig.tsbuildinfo
