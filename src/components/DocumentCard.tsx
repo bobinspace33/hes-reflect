@@ -6,20 +6,20 @@ import { useUI } from "@/store/ui";
 import { PdfPage, type Highlight } from "@/components/PdfPage";
 import type { DocumentRecord } from "@/types";
 
-const CARD_WIDTH = 280; // browse mode
-
 export function DocumentCard({
   doc,
   highlightsForPage,
   emphasized,
   dimmed,
   index,
+  cardWidth,
 }: {
   doc: DocumentRecord;
   highlightsForPage: (page: number) => Highlight[];
   emphasized: boolean;
   dimmed: boolean;
   index: number;
+  cardWidth: number;
 }) {
   const setMode = useUI((s) => s.setMode);
   const mode = useUI((s) => s.mode);
@@ -125,7 +125,7 @@ export function DocumentCard({
         }}
         className="relative cursor-pointer"
         style={{
-          width: CARD_WIDTH,
+          width: cardWidth,
           willChange: "transform",
         }}
       >
@@ -157,7 +157,7 @@ export function DocumentCard({
           <PdfPage
             url={doc.pdfUrl}
             pageNumber={pageNumber}
-            width={CARD_WIDTH}
+            width={cardWidth}
             highlights={highlightsForPage(pageNumber)}
             showTextLayer
           />
@@ -181,5 +181,3 @@ export function DocumentCard({
     </Reorder.Item>
   );
 }
-
-export { CARD_WIDTH };

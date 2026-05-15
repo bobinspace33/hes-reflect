@@ -75,21 +75,21 @@ export function MainExperience({
   }
 
   return (
-    <>
-      <header className="pt-10 pb-6 text-center select-none">
-        <h1 className="text-silver-100 text-2xl md:text-3xl font-light tracking-[0.18em] uppercase">
+    <div className="fixed inset-0 flex flex-col overflow-hidden">
+      <header className="pt-5 pb-3 text-center select-none shrink-0">
+        <h1 className="text-silver-100 text-xl md:text-2xl font-light tracking-[0.18em] uppercase">
           HES <span className="text-gold-300">Reflection</span>
         </h1>
-        <p className="text-silver-300/55 text-[11px] font-mono tracking-[0.22em] uppercase mt-2">
-          A reading in process · click · drag · zoom
+        <p className="text-silver-300/55 text-[10px] font-mono tracking-[0.22em] uppercase mt-1.5">
+          A reading in process · click · drag · scroll-zoom
         </p>
       </header>
 
-      <section className="flex-1 flex items-center justify-center px-4">
+      <section className="flex-1 min-h-0 flex items-center justify-center px-4 py-2">
         <DocumentArray documents={documents} themes={themes} />
       </section>
 
-      <footer className="pb-10 pt-6 flex flex-col items-center gap-6 px-4">
+      <footer className="pb-5 pt-3 flex flex-col items-center gap-3 px-4 shrink-0">
         {themes.length > 0 ? (
           <ThemeButtons themes={themes} />
         ) : (
@@ -106,6 +106,6 @@ export function MainExperience({
 
       <FocusOverlay documents={documents} highlightsFor={highlightsFor} />
       <ReflectionModal themes={themes} />
-    </>
+    </div>
   );
 }

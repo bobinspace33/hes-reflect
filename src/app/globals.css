@@ -99,9 +99,19 @@ body {
   90% { transform: translate(-6%, 5%); }
 }
 
-/* PDF.js text layer styling for highlights */
+/* PDF.js text layer — kept rendered so theme highlights can be injected,
+   but non-selectable + non-interactive so it doesn't fight drag/click. */
 .react-pdf__Page__textContent {
-  user-select: text;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  cursor: inherit;
+}
+.react-pdf__Page__textContent span,
+.react-pdf__Page__textContent span.hl-mark {
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 .react-pdf__Page__textContent span.hl-mark {
   background-color: var(--hl-color, rgba(254, 240, 138, 0.6));
@@ -113,6 +123,12 @@ body {
 /* Hide PDF.js annotation layer (we don't need clickable links) */
 .react-pdf__Page__annotations {
   display: none !important;
+}
+
+/* Make the canvas non-interactive so the parent card receives drag/click */
+.react-pdf__Page,
+.react-pdf__Page__canvas {
+  pointer-events: none;
 }
 
 /* Scrollbar styling for reflection wall */

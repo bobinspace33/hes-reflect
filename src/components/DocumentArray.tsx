@@ -4,6 +4,7 @@ import { Reorder } from "framer-motion";
 import { useMemo } from "react";
 import { useUI } from "@/store/ui";
 import { DocumentCard } from "@/components/DocumentCard";
+import { useFitLayout } from "@/lib/useFitLayout";
 import type { DocumentRecord, ThemeWithSources, HighlightHit } from "@/types";
 import type { Highlight } from "@/components/PdfPage";
 import { THEME_PALETTE } from "@/lib/colors";
@@ -15,6 +16,8 @@ export function DocumentArray({
   documents: DocumentRecord[];
   themes: ThemeWithSources[];
 }) {
+  const { containerRef, layout } = useFitLayout(documents.length);
+  const cardWidth = layout.cardWidth;
   const localOrder = useUI((s) => s.localOrder);
   const setLocalOrder = useUI((s) => s.setLocalOrder);
   const activeThemeId = useUI((s) => s.activeThemeId);
@@ -63,28 +66,34 @@ export function DocumentArray({
   const anyEmphasized = emphasizedIds.size > 0;
 
   return (
-    <Reorder.Group
-      axis="x"
-      values={orderedIds}
-      onReorder={(next) => setLocalOrder(next as string[])}
-      className="flex flex-wrap items-end justify-center gap-x-8 gap-y-12 px-6 pt-2 pb-6"
-      as="div"
+    <div
+      ref={containerRef}
+      className="w-full h-full flex items-center justify-center px-4"
     >
-      {orderedIds.map((id, idx) => {
-        const doc = byId.get(id);
-        if (!doc) return null;
-        return (
-          <DocumentCard
-            key={id}
-            doc={doc}
-            index={idx}
-            emphasized={emphasizedIds.has(id)}
-            dimmed={anyEmphasized && !emphasizedIds.has(id)}
-            highlightsForPage={(page) => highlightsFor(doc.id, page)}
-          />
-        );
-      })}
-    </Reorder.Group>
+      <Reorder.Group
+        axis="x"
+        values={orderedIds}
+        onReorder={(next) => setLocalOrder(next as string[])}
+        className="flex flex-wrap items-end justify-center gap-x-6 gap-y-7 max-w-full"
+        as="div"
+      >
+        {orderedIds.map((id, idx) => {
+          const doc = byId.get(id);
+          if (!doc) return null;
+          return (
+            <DocumentCard
+              key={id}
+              doc={doc}
+              index={idx}
+              cardWidth={cardWidth}
+              emphasized={emphasizedIds.has(id)}
+              dimmed={anyEmphasized && !emphasizedIds.has(id)}
+              highlightsForPage={(page) => highlightsFor(doc.id, page)}
+            />
+          );
+        })}
+      </Reorder.Group>
+    </div>
   );
 }
 
