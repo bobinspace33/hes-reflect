@@ -14,8 +14,8 @@ export function DocumentCard({
   index,
   cardWidth,
   spreadLayout = false,
-  themeRevealSignal,
-  themeLandingPage,
+  emphasisRevealKey,
+  emphasisLandingPage,
   emphasisGlow,
 }: {
   doc: DocumentRecord;
@@ -25,9 +25,9 @@ export function DocumentCard({
   index: number;
   cardWidth: number;
   spreadLayout?: boolean;
-  /** When set together with landing page: jump thumbnails to cited pages for this theme */
-  themeRevealSignal: string | null;
-  themeLandingPage: number | null;
+  /** When set with a landing page, jump to earliest emphasis page when key changes */
+  emphasisRevealKey: string | null;
+  emphasisLandingPage: number | null;
   emphasisGlow: string;
 }) {
   const setMode = useUI((s) => s.setMode);
@@ -36,27 +36,27 @@ export function DocumentCard({
   const [hovered, setHovered] = useState(false);
   /** wheel-driven additional zoom (1.0..1.5) applied in browse mode */
   const [wheelZoom, setWheelZoom] = useState(1);
-  const lastAppliedThemeJump = useRef("");
+  const lastAppliedEmphasisJump = useRef("");
 
   const isFocusedHere =
     mode.kind === "focus" && mode.documentId === doc.id;
 
-  // When a theme is selected, flip to its earliest cited page on this doc (browse / focus).
+  // When emphasis changes (theme or search), flip to earliest highlighted page on this doc (browse / focus).
   useEffect(() => {
-    if (!themeRevealSignal) {
-      lastAppliedThemeJump.current = "";
+    if (!emphasisRevealKey) {
+      lastAppliedEmphasisJump.current = "";
       return;
     }
-    if (themeLandingPage == null) {
-      lastAppliedThemeJump.current = "";
+    if (emphasisLandingPage == null) {
+      lastAppliedEmphasisJump.current = "";
       return;
     }
-    const p = themeLandingPage;
+    const p = emphasisLandingPage;
     if (p < 1 || p > doc.pageCount) return;
 
-    const stamp = `${themeRevealSignal}:${doc.id}`;
-    if (lastAppliedThemeJump.current === stamp) return;
-    lastAppliedThemeJump.current = stamp;
+    const stamp = `${emphasisRevealKey}:${doc.id}`;
+    if (lastAppliedEmphasisJump.current === stamp) return;
+    lastAppliedEmphasisJump.current = stamp;
 
     setPageNumber(p);
 
@@ -64,7 +64,7 @@ export function DocumentCard({
     if (m.kind === "focus" && m.documentId === doc.id) {
       useUI.getState().setMode({ ...m, pageNumber: p });
     }
-  }, [themeRevealSignal, themeLandingPage, doc.pageCount, doc.id]);
+  }, [emphasisRevealKey, emphasisLandingPage, doc.pageCount, doc.id]);
 
   // Sync card's local pageNumber from focus mode so closing focus reveals
   // whichever page the user navigated to in the modal.

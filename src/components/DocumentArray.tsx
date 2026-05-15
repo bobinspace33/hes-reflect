@@ -34,7 +34,9 @@ export function DocumentArray({
   const scrollDir = useRef(0); // -1 left, 0 stop, +1 right
   const activeThemeId = useUI((s) => s.activeThemeId);
   const searchHits = useUI((s) => s.searchHits);
+  const searchQuery = useUI((s) => s.searchQuery);
   const setActiveTheme = useUI((s) => s.setActiveTheme);
+  const setSearchHits = useUI((s) => s.setSearchHits);
 
   const activeTheme = themes.find((t) => t.id === activeThemeId) ?? null;
 
@@ -62,15 +64,50 @@ export function DocumentArray({
     return m;
   }, [activeTheme]);
 
+  const searchLandingPageByDoc = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const h of searchHits) {
+      const prev = m.get(h.documentId);
+      if (prev === undefined || h.pageNumber < prev) {
+        m.set(h.documentId, h.pageNumber);
+      }
+    }
+    return m;
+  }, [searchHits]);
+
+  /** Bumps DocumentCard landing when result set changes. */
+  const searchRevealKey = useMemo(() => {
+    if (searchHits.length === 0 || activeTheme) return null;
+    const sig = [...searchHits]
+      .map((h) => `${h.documentId}:${h.pageNumber}`)
+      .sort()
+      .join("|");
+    return `search:${searchQuery}:${sig}`;
+  }, [searchHits, searchQuery, activeTheme]);
+
+  const emphasisRevealKey =
+    activeThemeId ?? searchRevealKey;
+
+  const resolveEmphasisLandingPage = useCallback(
+    (documentId: string): number | null => {
+      if (activeTheme) return themeLandingPageByDoc.get(documentId) ?? null;
+      if (searchHits.length > 0) return searchLandingPageByDoc.get(documentId) ?? null;
+      return null;
+    },
+    [activeTheme, searchHits.length, themeLandingPageByDoc, searchLandingPageByDoc],
+  );
+
   const emphasisGlow = useMemo(() => {
     if (activeTheme) return THEME_PALETTE[activeTheme.color].glow;
     if (searchHits.length > 0) return THEME_PALETTE.yellow.glow;
     return "rgba(212, 186, 116, 0.35)";
   }, [activeTheme, searchHits.length]);
 
-  /** Theme picker: cite-only row, centered strip with gaps (no fan overlap). */
-  const spreadTheme =
+  /** Cited-docs row — theme sources or search hits — centered strip with gaps (no fan overlap). */
+  const spreadThemeActive =
     !!(activeTheme && emphasizedIds.size > 0 && searchHits.length === 0);
+  const spreadSearchActive = !!(searchHits.length > 0 && !activeTheme);
+  const spreadLayout = spreadThemeActive || spreadSearchActive;
 
   const emphasizedOrdered = useMemo(
     () => documents.filter((d) => emphasizedIds.has(d.id)),
@@ -167,11 +204,11 @@ export function DocumentArray({
     if (!el || documents.length === 0) return;
     const max = el.scrollWidth - el.clientWidth;
     if (max > 0) el.scrollLeft = max / 2;
-  }, [docIdsKey, cardWidth, overlap, spreadTheme]);
+  }, [docIdsKey, cardWidth, overlap, spreadLayout]);
 
   // When a theme is chosen, gently bring the first cited document toward center view (carousel only).
   useLayoutEffect(() => {
-    if (spreadTheme || !activeTheme || activeTheme.sources.length === 0) return;
+    if (spreadLayout || !activeTheme || activeTheme.sources.length === 0) return;
     const cited = new Set(activeTheme.sources.map((s) => s.documentId));
     const anchorDoc = documents.find((d) => cited.has(d.id));
     if (!anchorDoc) return;
@@ -180,7 +217,7 @@ export function DocumentArray({
     requestAnimationFrame(() => {
       el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     });
-  }, [activeThemeId, activeTheme, documents, docIdsKey, spreadTheme]);
+  }, [activeThemeId, activeTheme, documents, docIdsKey, spreadLayout]);
 
   const setEdgeDir = useCallback((dir: number) => {
     scrollDir.current = dir;
@@ -223,30 +260,31 @@ export function DocumentArray({
     }
   }, []);
 
-  const exitThemeSpread = useCallback(() => {
-    setActiveTheme(null);
-  }, [setActiveTheme]);
+  const exitSpreadView = useCallback(() => {
+    if (spreadSearchActive) setSearchHits([], "");
+    else setActiveTheme(null);
+  }, [spreadSearchActive, setSearchHits, setActiveTheme]);
 
   return (
     <div
       ref={containerRef}
       className={
         "relative w-full h-full min-h-0 flex flex-col " +
-        (spreadTheme ? "" : "justify-center")
+        (spreadLayout ? "" : "justify-center")
       }
       role="presentation"
     >
-      {spreadTheme ? (
+      {spreadLayout ? (
         <button
           type="button"
-          onClick={exitThemeSpread}
-          aria-label="Exit theme view"
-          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent hover:bg-transparent border-0 p-0 cursor-pointer focus-visible:outline focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
+          onClick={exitSpreadView}
+          aria-label={spreadSearchActive ? "Exit search results view" : "Exit theme view"}
+          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent border-0 p-0 outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
         />
       ) : null}
       <div
         className={
-          spreadTheme
+          spreadLayout
             ? "relative shrink-0 w-full min-w-0 z-10"
             : "relative flex-1 min-h-0 w-full min-w-0"
         }
@@ -274,7 +312,7 @@ export function DocumentArray({
           ref={scrollRef}
           className={
             "relative z-10 w-full overflow-x-auto overflow-y-hidden overscroll-x-contain carousel-hide-scrollbar touch-pan-x " +
-            (spreadTheme ? "h-auto" : "h-full")
+            (spreadLayout ? "h-auto" : "h-full")
           }
           onWheel={onCarouselWheel}
         >
@@ -283,7 +321,7 @@ export function DocumentArray({
               layoutRoot
               className={
                 "flex flex-row items-end justify-center px-2 pb-9 pt-20 " +
-                (spreadTheme ? "min-h-0" : "min-h-full")
+                (spreadLayout ? "min-h-0" : "min-h-full")
               }
               style={{
                 width: "max-content",
@@ -299,7 +337,7 @@ export function DocumentArray({
               {documents.map((doc, idx) => {
                 const globalIndex = idx;
                 const cw = cardWidth;
-                const isCitedSpot = spreadTheme && emphasizedIds.has(doc.id);
+                const isCitedSpot = spreadLayout && emphasizedIds.has(doc.id);
 
                 return (
                   <motion.div
@@ -353,17 +391,15 @@ export function DocumentArray({
                         index={globalIndex}
                         cardWidth={cw}
                         spreadLayout={false}
-                        emphasized={!spreadTheme && emphasizedIds.has(doc.id)}
+                        emphasized={!spreadLayout && emphasizedIds.has(doc.id)}
                         dimmed={
-                          spreadTheme
+                          spreadLayout
                             ? !emphasizedIds.has(doc.id)
                             : anyEmphasized && !emphasizedIds.has(doc.id)
                         }
                         highlightsForPage={(page) => highlightsFor(doc.id, page)}
-                        themeRevealSignal={activeThemeId}
-                        themeLandingPage={
-                          activeTheme ? (themeLandingPageByDoc.get(doc.id) ?? null) : null
-                        }
+                        emphasisRevealKey={emphasisRevealKey}
+                        emphasisLandingPage={resolveEmphasisLandingPage(doc.id)}
                         emphasisGlow={emphasisGlow}
                       />
                     )}
@@ -375,7 +411,7 @@ export function DocumentArray({
         </div>
 
         {/* Foreground: cited artifacts centered, enlarged, gaps — singles source of Pdf for each */}
-        {spreadTheme ? (
+        {spreadLayout ? (
           <div className="pointer-events-none absolute inset-0 z-[38] flex items-end justify-center pb-14 pt-[4.5rem]">
             <motion.div
               layout
@@ -410,10 +446,8 @@ export function DocumentArray({
                       emphasized
                       dimmed={false}
                       highlightsForPage={(page) => highlightsFor(doc.id, page)}
-                      themeRevealSignal={activeThemeId}
-                      themeLandingPage={
-                        activeTheme ? (themeLandingPageByDoc.get(doc.id) ?? null) : null
-                      }
+                      emphasisRevealKey={emphasisRevealKey}
+                      emphasisLandingPage={resolveEmphasisLandingPage(doc.id)}
                       emphasisGlow={emphasisGlow}
                     />
                   </motion.div>
@@ -423,12 +457,12 @@ export function DocumentArray({
           </div>
         ) : null}
       </div>
-      {spreadTheme ? (
+      {spreadLayout ? (
         <button
           type="button"
-          onClick={exitThemeSpread}
-          aria-label="Exit theme view"
-          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent hover:bg-transparent border-0 p-0 cursor-pointer focus-visible:outline focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
+          onClick={exitSpreadView}
+          aria-label={spreadSearchActive ? "Exit search results view" : "Exit theme view"}
+          className="flex-1 min-h-[72px] w-full shrink-0 z-[18] bg-transparent border-0 p-0 outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-gold-400/35 focus-visible:ring-inset"
         />
       ) : null}
     </div>

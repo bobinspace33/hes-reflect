@@ -34,6 +34,7 @@ export function MainExperience({
   const setIntroductionOpen = useUI((s) => s.setIntroductionOpen);
   const setClosingCommentaryOpen = useUI((s) => s.setClosingCommentaryOpen);
   const setActiveTheme = useUI((s) => s.setActiveTheme);
+  const setSearchHits = useUI((s) => s.setSearchHits);
 
   const activeTheme = useMemo(
     () => themes.find((t) => t.id === activeThemeId) ?? null,
@@ -49,15 +50,22 @@ export function MainExperience({
     return set;
   }, [activeTheme, searchHits]);
 
-  /** Matches `spreadTheme` in DocumentArray — cited-docs strip with theme highlights. */
-  const spreadTheme = !!(activeTheme && emphasizedIds.size > 0 && searchHits.length === 0);
+  /** Matches spread layout in DocumentArray — centered cited documents (theme or search). */
+  const spreadCarouselView =
+    (!!activeTheme && emphasizedIds.size > 0 && searchHits.length === 0) ||
+    !!(searchHits.length > 0 && !activeTheme);
+  const spreadingSearchHits = !!(searchHits.length > 0 && !activeTheme);
 
-  const exitThemeView = useCallback(() => {
+  const exitSpreadView = useCallback(() => {
+    if (searchHits.length > 0 && activeThemeId == null) {
+      setSearchHits([], "");
+      return;
+    }
     setActiveTheme(null);
-  }, [setActiveTheme]);
+  }, [activeThemeId, searchHits.length, setSearchHits, setActiveTheme]);
 
   useEffect(() => {
-    if (!spreadTheme) return;
+    if (!spreadCarouselView) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const s = useUI.getState();
@@ -73,11 +81,15 @@ export function MainExperience({
         return;
       }
       e.preventDefault();
-      s.setActiveTheme(null);
+      if (s.searchHits.length > 0 && !s.activeThemeId) {
+        s.setSearchHits([], "");
+      } else {
+        s.setActiveTheme(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [spreadTheme]);
+  }, [spreadCarouselView]);
   const highlightsFor = useMemo(
     () => getDocumentHighlightsFn(themes, activeThemeId, searchHits),
     [themes, activeThemeId, searchHits],
@@ -121,17 +133,19 @@ export function MainExperience({
   }
 
   const spreadExitBandClass =
-    "flex-1 basis-0 min-w-10 shrink-0 self-stretch z-[12] cursor-pointer bg-transparent hover:bg-white/[0.035] border-0 p-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-gold-400/30";
+    "flex-1 basis-0 min-w-10 shrink-0 self-stretch z-[12] cursor-pointer bg-transparent border-0 p-0 outline-none focus-visible:ring-2 focus-visible:ring-gold-400/30";
 
   return (
     <div className="fixed inset-0 z-10 flex flex-col overflow-hidden">
       <header className="pt-5 pb-1 shrink-0 select-none">
-        {!demoMode && spreadTheme ? (
+        {!demoMode && spreadCarouselView ? (
           <div className="flex flex-row items-stretch w-full min-w-0 px-2 sm:px-3">
             <button
               type="button"
-              onClick={exitThemeView}
-              aria-label="Exit theme view"
+              onClick={exitSpreadView}
+              aria-label={
+                spreadingSearchHits ? "Exit search results view" : "Exit theme view"
+              }
               className={spreadExitBandClass}
             />
             <div className="flex-1 min-w-0 flex flex-col items-center text-center px-1">
@@ -166,8 +180,10 @@ export function MainExperience({
             </div>
             <button
               type="button"
-              onClick={exitThemeView}
-              aria-label="Exit theme view"
+              onClick={exitSpreadView}
+              aria-label={
+                spreadingSearchHits ? "Exit search results view" : "Exit theme view"
+              }
               className={spreadExitBandClass}
             />
           </div>
@@ -212,14 +228,16 @@ export function MainExperience({
           <div
             className={
               "flex flex-1 min-h-0 min-w-0 " +
-              (spreadTheme ? "flex-row items-stretch" : "flex-col")
+              (spreadCarouselView ? "flex-row items-stretch" : "flex-col")
             }
           >
-            {spreadTheme ? (
+            {spreadCarouselView ? (
               <button
                 type="button"
-                onClick={exitThemeView}
-                aria-label="Exit theme view"
+                onClick={exitSpreadView}
+                aria-label={
+                  spreadingSearchHits ? "Exit search results view" : "Exit theme view"
+                }
                 className={spreadExitBandClass}
               />
             ) : null}
@@ -230,11 +248,13 @@ export function MainExperience({
               </div>
               <div className="flex-1 min-h-0" aria-hidden />
             </div>
-            {spreadTheme ? (
+            {spreadCarouselView ? (
               <button
                 type="button"
-                onClick={exitThemeView}
-                aria-label="Exit theme view"
+                onClick={exitSpreadView}
+                aria-label={
+                  spreadingSearchHits ? "Exit search results view" : "Exit theme view"
+                }
                 className={spreadExitBandClass}
               />
             ) : null}
