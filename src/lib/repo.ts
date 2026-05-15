@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { sql, ensureSchema } from "@/lib/db";
 import type {
   DocumentRecord,
@@ -31,12 +32,14 @@ function mapTheme(row: any): ThemeRecord {
 }
 
 function mapSource(row: any): ThemeSource {
+  const o = row.origin ?? "analysis";
   return {
     id: row.id,
     themeId: row.theme_id,
     documentId: row.document_id,
     pageNumber: row.page_number,
     quote: row.quote,
+    origin: o === "manual" ? "manual" : "analysis",
   };
 }
 
@@ -78,6 +81,12 @@ export async function listThemes(): Promise<ThemeRecord[]> {
   await repoReady();
   const { rows } = await sql`SELECT * FROM themes ORDER BY "order" ASC`;
   return rows.map(mapTheme);
+}
+
+export async function getTheme(id: string): Promise<ThemeRecord | null> {
+  await repoReady();
+  const { rows } = await sql`SELECT * FROM themes WHERE id = ${id} LIMIT 1`;
+  return rows[0] ? mapTheme(rows[0]) : null;
 }
 
 export async function listThemesWithSources(): Promise<ThemeWithSources[]> {
@@ -151,6 +160,24 @@ export async function replaceAllThemes(
   await repoReady();
   await sql.query("BEGIN");
   try {
+    const { rows: manualRows } = await sql.query(
+      `SELECT t.label, ts.document_id, ts.page_number, ts.quote
+       FROM theme_sources ts
+       INNER JOIN themes t ON t.id = ts.theme_id
+       WHERE COALESCE(ts.origin, 'analysis') = 'manual'`,
+    );
+    const manualPreserved: {
+      label: string;
+      documentId: string;
+      pageNumber: number;
+      quote: string;
+    }[] = manualRows.map((r: any) => ({
+      label: r.label as string,
+      documentId: r.document_id as string,
+      pageNumber: r.page_number as number,
+      quote: r.quote as string,
+    }));
+
     await sql.query("DELETE FROM theme_sources");
     // Preserve personal_reflection by matching on label (themes are regenerated each run)
     const { rows: oldThemes } = await sql.query(
@@ -170,9 +197,20 @@ export async function replaceAllThemes(
     }
     for (const s of sources) {
       await sql.query(
-        `INSERT INTO theme_sources (id, theme_id, document_id, page_number, quote)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO theme_sources (id, theme_id, document_id, page_number, quote, origin)
+         VALUES ($1, $2, $3, $4, $5, 'analysis')`,
         [s.id, s.themeId, s.documentId, s.pageNumber, s.quote],
+      );
+    }
+    const labelToId = new Map(themes.map((t) => [normalizeLabel(t.label), t.id]));
+    for (const m of manualPreserved) {
+      const tid = labelToId.get(normalizeLabel(m.label));
+      if (!tid) continue;
+      const id = crypto.randomBytes(8).toString("hex");
+      await sql.query(
+        `INSERT INTO theme_sources (id, theme_id, document_id, page_number, quote, origin)
+         VALUES ($1, $2, $3, $4, $5, 'manual')`,
+        [id, tid, m.documentId, m.pageNumber, m.quote],
       );
     }
     await sql.query("COMMIT");
@@ -246,4 +284,47 @@ export async function reorderDocuments(orderedIds: string[]): Promise<void> {
 export async function setDocumentVisibility(id: string, visible: boolean): Promise<void> {
   await repoReady();
   await sql`UPDATE documents SET visible = ${visible} WHERE id = ${id}`;
+}
+
+export async function getSiteString(key: string): Promise<string> {
+  await repoReady();
+  const { rows } = await sql`SELECT body FROM site_strings WHERE key = ${key} LIMIT 1`;
+  return (rows[0] as { body?: string } | undefined)?.body ?? "";
+}
+
+export async function setSiteString(key: string, body: string): Promise<void> {
+  await repoReady();
+  await sql`
+    INSERT INTO site_strings (key, body, updated_at)
+    VALUES (${key}, ${body}, NOW())
+    ON CONFLICT (key) DO UPDATE SET body = EXCLUDED.body, updated_at = NOW()`;
+}
+
+export async function insertManualThemeSource(input: {
+  themeId: string;
+  documentId: string;
+  pageNumber: number;
+  quote: string;
+}): Promise<ThemeSource> {
+  await repoReady();
+  const q = input.quote.trim();
+  if (!q) throw new Error("Quote is empty");
+  const id = crypto.randomBytes(8).toString("hex");
+  await sql`
+    INSERT INTO theme_sources (id, theme_id, document_id, page_number, quote, origin)
+    VALUES (${id}, ${input.themeId}, ${input.documentId}, ${input.pageNumber}, ${q}, 'manual')
+  `;
+  const { rows } = await sql`SELECT * FROM theme_sources WHERE id = ${id}`;
+  const row = rows[0];
+  if (!row) throw new Error("Failed to insert theme source");
+  return mapSource(row);
+}
+
+export async function deleteThemeSource(id: string): Promise<boolean> {
+  await repoReady();
+  const { rows } = await sql.query(
+    `DELETE FROM theme_sources WHERE id = $1 RETURNING id`,
+    [id],
+  );
+  return rows.length > 0;
 }

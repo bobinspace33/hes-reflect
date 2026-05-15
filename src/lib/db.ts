@@ -63,9 +63,12 @@ export const SCHEMA_SQL = /* sql */ `
     document_id   TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     page_number   INT NOT NULL,
     quote         TEXT NOT NULL,
+    origin        TEXT NOT NULL DEFAULT 'analysis',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS theme_sources_theme_idx ON theme_sources(theme_id);
+
+  ALTER TABLE theme_sources ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'analysis';
 
   CREATE TABLE IF NOT EXISTS reflections (
     id          TEXT PRIMARY KEY,
@@ -75,6 +78,12 @@ export const SCHEMA_SQL = /* sql */ `
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS reflections_theme_idx ON reflections(theme_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS site_strings (
+    key         TEXT PRIMARY KEY,
+    body        TEXT NOT NULL DEFAULT '',
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 
   CREATE TABLE IF NOT EXISTS analysis_runs (
     id          TEXT PRIMARY KEY,

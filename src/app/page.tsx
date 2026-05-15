@@ -1,5 +1,10 @@
 import { Suspense } from "react";
-import { listDocuments, listThemesWithSources } from "@/lib/repo";
+import { listDocuments, listThemesWithSources, getSiteString } from "@/lib/repo";
+import {
+  SITE_INTRODUCTION_KEY,
+  SITE_CLOSING_COMMENTARY_KEY,
+  SITE_BACKGROUND_IMAGE_KEY,
+} from "@/lib/site-copy";
 import { loadSeedAsDemoData } from "@/lib/demo";
 import { Background } from "@/components/Background";
 import { MainExperience } from "@/components/MainExperience";
@@ -7,15 +12,22 @@ import { MainExperience } from "@/components/MainExperience";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  let introduction = "";
+  let closingCommentary = "";
+  let backgroundImageUrl = "";
   let documents = [] as Awaited<ReturnType<typeof listDocuments>>;
   let themes = [] as Awaited<ReturnType<typeof listThemesWithSources>>;
   let dbError: string | null = null;
   let demoMode = false;
   try {
-    [documents, themes] = await Promise.all([
-      listDocuments({ onlyVisible: true }),
-      listThemesWithSources(),
-    ]);
+    [documents, themes, introduction, backgroundImageUrl, closingCommentary] =
+      await Promise.all([
+        listDocuments({ onlyVisible: true }),
+        listThemesWithSources(),
+        getSiteString(SITE_INTRODUCTION_KEY),
+        getSiteString(SITE_BACKGROUND_IMAGE_KEY),
+        getSiteString(SITE_CLOSING_COMMENTARY_KEY),
+      ]);
   } catch (e) {
     dbError = (e as Error).message;
     // Fall back to the seed JSON file (if it exists) so the site is still
@@ -31,11 +43,13 @@ export default async function HomePage() {
 
   return (
     <main className="isolate relative h-screen w-screen overflow-hidden">
-      <Background />
+      <Background src={backgroundImageUrl.trim() || undefined} />
       <Suspense>
         <MainExperience
           documents={documents}
           themes={themes}
+          introduction={introduction}
+          closingCommentary={closingCommentary}
           dbError={dbError}
           demoMode={demoMode}
         />

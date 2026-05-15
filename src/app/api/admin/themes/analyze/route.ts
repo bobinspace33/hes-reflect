@@ -29,12 +29,13 @@ export async function POST() {
       personalReflection: "",
     }));
     const sourceRecs = themes.flatMap((t, i) =>
-      t.sources.map((s, j) => ({
+      t.sources.map((s) => ({
         id: crypto.randomBytes(8).toString("hex"),
         themeId: themeRecs[i].id,
         documentId: s.documentId,
         pageNumber: s.pageNumber,
         quote: s.quote,
+        origin: "analysis" as const,
       })),
     );
     await replaceAllThemes(themeRecs, sourceRecs);

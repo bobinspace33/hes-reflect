@@ -16,12 +16,16 @@ type UIState = {
   searching: boolean;
   /** controls visibility of the reflection modal */
   reflectionOpen: boolean;
+  introductionOpen: boolean;
+  closingCommentaryOpen: boolean;
 
   setMode: (m: Mode) => void;
   setActiveTheme: (id: string | null) => void;
   setSearchHits: (hits: HighlightHit[], query: string) => void;
   setSearching: (b: boolean) => void;
   setReflectionOpen: (b: boolean) => void;
+  setIntroductionOpen: (b: boolean) => void;
+  setClosingCommentaryOpen: (b: boolean) => void;
 };
 
 export const useUI = create<UIState>((set) => ({
@@ -31,6 +35,8 @@ export const useUI = create<UIState>((set) => ({
   searchQuery: "",
   searching: false,
   reflectionOpen: false,
+  introductionOpen: false,
+  closingCommentaryOpen: false,
   setMode: (mode) => set({ mode }),
   setActiveTheme: (id) =>
     set((s) => ({
@@ -43,4 +49,6 @@ export const useUI = create<UIState>((set) => ({
     set({ searchHits, searchQuery: query, activeThemeId: null }),
   setSearching: (searching) => set({ searching }),
   setReflectionOpen: (reflectionOpen) => set({ reflectionOpen }),
+  setIntroductionOpen: (introductionOpen) => set({ introductionOpen }),
+  setClosingCommentaryOpen: (closingCommentaryOpen) => set({ closingCommentaryOpen }),
 }));

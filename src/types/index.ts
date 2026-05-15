@@ -31,6 +31,8 @@ export type ThemeSource = {
   documentId: string;
   pageNumber: number;
   quote: string;
+  /** Preserved when re-running theme analysis; `analysis` rows are replaced each run. */
+  origin: "analysis" | "manual";
 };
 
 export type ReflectionRecord = {
