@@ -3,7 +3,7 @@
  * Safe to re-run: upserts documents on slug.
  */
 
-import "dotenv/config";
+import "./load-env";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,13 @@ const __dirname = path.dirname(__filename);
 const SEED = path.resolve(__dirname, "..", "data", "seed-documents.json");
 
 async function main() {
+  if (!process.env.POSTGRES_URL) {
+    console.error(
+      "POSTGRES_URL is not set. Add it to `.env.local` (see README) or run: vercel env pull .env.local",
+    );
+    process.exit(1);
+  }
+
   const raw = await fs.readFile(SEED, "utf8");
   const docs = JSON.parse(raw) as Array<{
     id: string;

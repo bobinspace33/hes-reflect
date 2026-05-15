@@ -8,7 +8,7 @@
  *            then pdf-parse over the rendered PDF for canonical per-page text.
  */
 
-import "dotenv/config";
+import "./load-env";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

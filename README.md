@@ -96,6 +96,7 @@ on a public wall.
 ## Troubleshooting
 
 - **"Database not configured" on the homepage** — `POSTGRES_URL` is missing/wrong. Run `vercel env pull .env.local`.
+- **`missing_connection_string` from `npm run db:seed` / `db:init`** — scripts read `.env` and `.env.local` from the repo root. Put `POSTGRES_URL` in `.env.local`, or pull env vars with `vercel env pull .env.local`.
 - **"No themes have been generated" after Analyze** — check the server logs; usually it's `OPENAI_API_KEY` missing or model name unrecognized. Override with `OPENAI_MODEL=gpt-4o-mini` to test.
 - **Highlights don't show** — the quote returned by the LLM didn't match the page text verbatim. Re-run Analyze; the prompt insists on verbatim substrings and quotes are filtered server-side. Worst case, see browser console for the text-layer state.
 - **Local ingest fails on Puppeteer install** — `npm install puppeteer` downloads a bundled Chromium (~170MB). If your machine blocks the download, set `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true` and point `PUPPETEER_EXECUTABLE_PATH` at a local Chrome.
