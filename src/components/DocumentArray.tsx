@@ -28,6 +28,9 @@ export function DocumentArray({
   const { containerRef, layout } = useCarouselLayout();
   const { cardWidth, overlap } = layout;
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** Defer clearing hover so moving between overlapping cards doesn't flicker z-index. */
+  const carouselHoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredCarouselDocId, setHoveredCarouselDocId] = useState<string | null>(null);
   const scrollDir = useRef(0); // -1 left, 0 stop, +1 right
   const activeThemeId = useUI((s) => s.activeThemeId);
   const searchHits = useUI((s) => s.searchHits);
@@ -149,6 +152,14 @@ export function DocumentArray({
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (carouselHoverClearTimer.current != null) {
+        clearTimeout(carouselHoverClearTimer.current);
+      }
+    };
+  }, []);
+
   // Center carousel strip (backdrop fan). When spreading theme, cites move to overlay but phantom row keeps geometry.
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -173,6 +184,23 @@ export function DocumentArray({
   const setEdgeDir = useCallback((dir: number) => {
     scrollDir.current = dir;
   }, []);
+
+  const carouselCardEnter = useCallback((id: string) => {
+    if (carouselHoverClearTimer.current != null) {
+      clearTimeout(carouselHoverClearTimer.current);
+      carouselHoverClearTimer.current = null;
+    }
+    setHoveredCarouselDocId(id);
+  }, []);
+
+  const carouselCardLeave = useCallback((id: string) => {
+    carouselHoverClearTimer.current = setTimeout(() => {
+      setHoveredCarouselDocId((cur) => (cur === id ? null : cur));
+      carouselHoverClearTimer.current = null;
+    }, 0);
+  }, []);
+
+  const highlightedCarouselZ = documents.length + 50;
 
   const edgeWidth = `min(${Math.round(EDGE_ZONE_VW * 100)}vw, ${EDGE_MAX_PX}px)`;
 
@@ -263,9 +291,18 @@ export function DocumentArray({
                     className={
                       "relative shrink-0 " + (isCitedSpot ? "pointer-events-none" : "")
                     }
+                    onMouseEnter={
+                      isCitedSpot ? undefined : () => carouselCardEnter(doc.id)
+                    }
+                    onMouseLeave={
+                      isCitedSpot ? undefined : () => carouselCardLeave(doc.id)
+                    }
                     style={{
                       marginLeft: idx > 0 ? -overlap : 0,
-                      zIndex: globalIndex + 1,
+                      zIndex:
+                        !isCitedSpot && hoveredCarouselDocId === doc.id
+                          ? highlightedCarouselZ
+                          : globalIndex + 1,
                     }}
                   >
                     {isCitedSpot ? (

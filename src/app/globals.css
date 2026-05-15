@@ -7,6 +7,8 @@
   --silver: 205, 199, 184;
   --gold: 184, 154, 85;
   --sepia: 122, 98, 58;
+  /* Matches tailwind theme `paper` — blocks canvas under injected highlights */
+  --pdf-highlight-paper: #f6f1e6;
 }
 
 html,
@@ -85,7 +87,8 @@ body {
   cursor: inherit;
 }
 .react-pdf__Page__textContent span,
-.react-pdf__Page__textContent mark.hl-mark {
+.react-pdf__Page__textContent mark.hl-mark,
+.react-pdf__Page__textContent mark.hl-mark span {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
@@ -94,13 +97,38 @@ body {
   display: inline;
   vertical-align: baseline;
   position: relative;
-  background-color: var(--hl-color, rgba(221, 214, 254, 0.55));
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: transparent;
   border-radius: 2px;
   box-shadow: none;
   opacity: 1;
+  /* Substrate hides canvas glyphs; `.hl-mark__ink` redraws quoted text in black. */
   /* Left-to-right reveal; stagger via --hl-delay / --hl-duration from PdfPage.tsx.
      Avoid filter/box-shadow in the keyframes — they promote GPU layers and make PDF text look blurred or doubled. */
   animation: hl-mark-wipe var(--hl-duration, 0.5s) ease-out var(--hl-delay, 0s) both;
+}
+
+.react-pdf__Page__textContent .hl-mark__substrate {
+  position: absolute;
+  z-index: 0;
+  top: -0.075em;
+  right: -1.5px;
+  bottom: -0.095em;
+  left: -1.5px;
+  border-radius: 2px;
+  pointer-events: none;
+  /* Theme tint over paper — opaque paper blocks misaligned canvas text below */
+  background:
+    linear-gradient(0deg, var(--hl-color, rgba(221, 214, 254, 0.55)), var(--hl-color, rgba(221, 214, 254, 0.55))),
+    var(--pdf-highlight-paper);
+}
+
+.react-pdf__Page__textContent .hl-mark__ink {
+  position: relative;
+  z-index: 1;
+  color: rgb(12, 10, 8);
+  -webkit-text-fill-color: rgb(12, 10, 8);
 }
 
 @keyframes hl-mark-wipe {

@@ -145,11 +145,13 @@ function staggerHighlightMarks(layer: HTMLElement) {
 }
 
 function applyHighlights(layer: HTMLElement, highlights: Highlight[]) {
-  // Reset: remove existing marks
+  // Reset: remove existing marks (structure is mark → substrate + hl-mark__ink)
   layer.querySelectorAll("mark.hl-mark").forEach((mark) => {
     const parent = mark.parentNode;
     if (!parent) return;
-    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    const ink = mark.querySelector(".hl-mark__ink");
+    const text = ink?.textContent ?? "";
+    parent.insertBefore(document.createTextNode(text), mark);
     parent.removeChild(mark);
     parent.normalize();
   });
@@ -258,7 +260,14 @@ function wrapRange(
     const mark = document.createElement("mark");
     mark.className = "hl-mark";
     mark.style.setProperty("--hl-color", color);
-    mark.textContent = middle;
+    const substrate = document.createElement("span");
+    substrate.className = "hl-mark__substrate";
+    substrate.setAttribute("aria-hidden", "true");
+    const ink = document.createElement("span");
+    ink.className = "hl-mark__ink";
+    ink.textContent = middle;
+    mark.appendChild(substrate);
+    mark.appendChild(ink);
     span.appendChild(mark);
     if (after) span.appendChild(document.createTextNode(after));
   }

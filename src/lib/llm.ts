@@ -67,6 +67,22 @@ function truncate(s: string, n: number): string {
   return s.slice(0, n) + "…";
 }
 
+/** Keep up to `max` sources per document (order preserved). */
+function capSourcesPerDocument(
+  sources: Array<{ documentId: string; pageNumber: number; quote: string }>,
+  maxPerDocument: number,
+): Array<{ documentId: string; pageNumber: number; quote: string }> {
+  const countByDoc = new Map<string, number>();
+  const out: typeof sources = [];
+  for (const s of sources) {
+    const n = countByDoc.get(s.documentId) ?? 0;
+    if (n >= maxPerDocument) continue;
+    countByDoc.set(s.documentId, n + 1);
+    out.push(s);
+  }
+  return out;
+}
+
 async function callJSON(prompt: string, schemaName: string): Promise<any> {
   const resp = await client().chat.completions.create({
     model: MODEL,
@@ -105,7 +121,7 @@ export async function extractThemes(
     "",
     "Your job:",
     "1. Identify 4–5 cross-cutting THEMES that unify the collection. Each theme label must be a short phrase of 1–4 words (sentence case, no period).",
-    "2. For each theme, find the documents that exemplify it (0–2 quoted passages PER document, max).",
+    "2. For each theme, find the documents that exemplify it (up to 3 quoted passages PER document, max; use fewer or none if the fit is weak).",
     "3. Each quote MUST be a verbatim substring of the page text provided (so substring search will find it). Quotes should be 6–30 words long. Prefer specific, concrete sentences over generic statements.",
     "4. Skip a document for a theme if it doesn't really fit. Not every theme needs every document.",
     "",
@@ -124,12 +140,15 @@ export async function extractThemes(
   const cleaned = parsed.themes.map((t, i) => ({
     label: t.label.trim(),
     color: THEME_COLOR_ORDER[i % THEME_COLOR_ORDER.length],
-    sources: t.sources.filter((s) => {
-      const d = docById.get(s.documentId);
-      if (!d) return false;
-      const pageText = d.pageTexts[s.pageNumber - 1] || "";
-      return pageText.toLowerCase().includes(s.quote.toLowerCase());
-    }),
+    sources: capSourcesPerDocument(
+      t.sources.filter((s) => {
+        const d = docById.get(s.documentId);
+        if (!d) return false;
+        const pageText = d.pageTexts[s.pageNumber - 1] || "";
+        return pageText.toLowerCase().includes(s.quote.toLowerCase());
+      }),
+      3,
+    ),
   }));
 
   return { themes: cleaned };
