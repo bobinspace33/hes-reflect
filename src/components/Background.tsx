@@ -46,19 +46,12 @@ export function Background({ src }: { src?: string }) {
   }, [src]);
 
   return (
-    <div className="fixed inset-0 overflow-hidden -z-10" aria-hidden>
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
       <div
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
         style={{
           backgroundImage: resolved ? `url("${resolved}")` : undefined,
           opacity: resolved ? 1 : 0,
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(13,12,10,0.05) 0%, rgba(13,12,10,0.35) 70%, rgba(13,12,10,0.7) 100%)",
         }}
       />
       <div className="shimmer-overlay" />

@@ -108,16 +108,31 @@ body {
   cursor: inherit;
 }
 .react-pdf__Page__textContent span,
-.react-pdf__Page__textContent span.hl-mark {
+.react-pdf__Page__textContent mark.hl-mark {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
 }
-.react-pdf__Page__textContent span.hl-mark {
-  background-color: var(--hl-color, rgba(254, 240, 138, 0.6));
+.react-pdf__Page__textContent mark.hl-mark {
+  display: inline;
+  vertical-align: baseline;
+  position: relative;
+  background-color: var(--hl-color, rgba(221, 214, 254, 0.55));
   border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
-  transition: background-color 350ms ease;
+  opacity: 1;
+  /* Left-to-right reveal; stagger via --hl-delay / --hl-duration from PdfPage.tsx.
+     Avoid filter/box-shadow in the keyframes — they promote GPU layers and make PDF text look blurred or doubled. */
+  animation: hl-mark-wipe var(--hl-duration, 0.5s) ease-out var(--hl-delay, 0s) both;
+}
+
+@keyframes hl-mark-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
 
 /* Hide PDF.js annotation layer (we don't need clickable links) */

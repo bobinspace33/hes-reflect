@@ -17,7 +17,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HES Reflection",
+  title: "DGMD-E57 Reflection • Bob Kelly",
   description:
     "An interactive reading of design-process documents, with themes and reflections.",
 };

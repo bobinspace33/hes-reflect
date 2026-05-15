@@ -13,6 +13,10 @@ export function DocumentCard({
   dimmed,
   index,
   cardWidth,
+  spreadLayout = false,
+  themeRevealSignal,
+  themeLandingPage,
+  emphasisGlow,
 }: {
   doc: DocumentRecord;
   highlightsForPage: (page: number) => Highlight[];
@@ -20,6 +24,11 @@ export function DocumentCard({
   dimmed: boolean;
   index: number;
   cardWidth: number;
+  spreadLayout?: boolean;
+  /** When set together with landing page: jump thumbnails to cited pages for this theme */
+  themeRevealSignal: string | null;
+  themeLandingPage: number | null;
+  emphasisGlow: string;
 }) {
   const setMode = useUI((s) => s.setMode);
   const mode = useUI((s) => s.mode);
@@ -27,9 +36,35 @@ export function DocumentCard({
   const [hovered, setHovered] = useState(false);
   /** wheel-driven additional zoom (1.0..1.5) applied in browse mode */
   const [wheelZoom, setWheelZoom] = useState(1);
+  const lastAppliedThemeJump = useRef("");
 
   const isFocusedHere =
     mode.kind === "focus" && mode.documentId === doc.id;
+
+  // When a theme is selected, flip to its earliest cited page on this doc (browse / focus).
+  useEffect(() => {
+    if (!themeRevealSignal) {
+      lastAppliedThemeJump.current = "";
+      return;
+    }
+    if (themeLandingPage == null) {
+      lastAppliedThemeJump.current = "";
+      return;
+    }
+    const p = themeLandingPage;
+    if (p < 1 || p > doc.pageCount) return;
+
+    const stamp = `${themeRevealSignal}:${doc.id}`;
+    if (lastAppliedThemeJump.current === stamp) return;
+    lastAppliedThemeJump.current = stamp;
+
+    setPageNumber(p);
+
+    const m = useUI.getState().mode;
+    if (m.kind === "focus" && m.documentId === doc.id) {
+      useUI.getState().setMode({ ...m, pageNumber: p });
+    }
+  }, [themeRevealSignal, themeLandingPage, doc.pageCount, doc.id]);
 
   // Sync card's local pageNumber from focus mode so closing focus reveals
   // whichever page the user navigated to in the modal.
@@ -92,7 +127,10 @@ export function DocumentCard({
   // Floating animation: gentle y bob with per-card phase offset
   const floatDelay = (index * 0.6) % 3.2;
 
-  const scale = isFocusedHere ? 0 : Math.max(wheelZoom, hovered ? 1.07 : 1) * (emphasized ? 1.1 : 1);
+  const scale =
+    isFocusedHere ? 0
+    : Math.max(wheelZoom, hovered && !spreadLayout ? 1.07 : 1) *
+      (spreadLayout ? 1 : emphasized ? 1.1 : 1);
 
   return (
     <div className="select-none">
@@ -105,15 +143,24 @@ export function DocumentCard({
         onContextMenu={onContextMenu}
         animate={{
           scale,
-          y: isFocusedHere ? 0 : [0, -6, 0],
-          opacity: isFocusedHere ? 0 : dimmed ? 0.32 : 1,
-          filter: dimmed ? "saturate(0.7)" : "saturate(1)",
+          y: isFocusedHere ? 0 : spreadLayout ? 0 : [0, -6, 0],
+          opacity: isFocusedHere ? 0 : dimmed ? 0.52 : 1,
+          filter: dimmed ? "blur(7px) saturate(0.7)" : "blur(0px) saturate(1)",
         }}
         transition={{
           scale: { type: "spring", stiffness: 220, damping: 22 },
-          y: { duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: floatDelay },
+          ...(spreadLayout
+            ? { y: { duration: 0.35 } }
+            : {
+                y: {
+                  duration: 6.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: floatDelay,
+                },
+              }),
           opacity: { duration: 0.45 },
-          filter: { duration: 0.45 },
+          filter: { duration: 0.4 },
         }}
         className="relative cursor-pointer"
         style={{
@@ -121,28 +168,39 @@ export function DocumentCard({
           willChange: "transform",
         }}
       >
-        {/* Soft shadow plate beneath the page */}
-        <div
-          className="absolute left-1/2 -bottom-3 -translate-x-1/2 rounded-full"
-          aria-hidden
-          style={{
-            width: "70%",
-            height: 14,
-            background:
-              "radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 70%)",
-            filter: "blur(6px)",
+        <motion.div
+          className="pointer-events-none absolute bottom-full left-0 right-0 z-20 mb-2 flex justify-center px-2"
+          initial={false}
+          animate={{
+            opacity: hovered && !isFocusedHere ? 1 : 0,
+            y: hovered && !isFocusedHere ? 0 : 8,
           }}
-        />
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          aria-hidden={!hovered}
+        >
+          <div className="w-max max-w-[min(94vw,24rem)] text-center">
+            <div className="rounded-lg border border-silver-200/25 bg-paper/92 px-3 py-1.5 text-ink shadow-page backdrop-blur-sm">
+              <div className="text-[10px] font-medium uppercase tracking-[0.14em] leading-snug max-w-[32rem] whitespace-normal">
+                {doc.title}
+              </div>
+              {doc.pageCount > 1 ? (
+                <div className="mt-1 font-mono text-[9px] uppercase tracking-normal text-silver-600">
+                  Page {pageNumber} / {doc.pageCount}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </motion.div>
 
         <div
           className={
-            "relative rounded-[3px] bg-paper overflow-hidden shadow-page transition-shadow duration-300 " +
+            "relative rounded-none bg-paper overflow-hidden shadow-page transition-shadow duration-300 " +
             (emphasized ? "theme-glow" : "")
           }
           style={{
-            // theme-glow uses --glow CSS var; default to gold
-            ["--glow" as any]: emphasized
-              ? "rgba(212, 186, 116, 0.55)"
+            // theme-glow uses --glow CSS var; match active theme / search accent
+            ["--glow" as string]: emphasized
+              ? emphasisGlow
               : "rgba(212, 186, 116, 0.35)",
           }}
         >
@@ -153,21 +211,6 @@ export function DocumentCard({
             highlights={highlightsForPage(pageNumber)}
             showTextLayer
           />
-        </div>
-
-        {/* metadata strip */}
-        <div className="mt-3 px-1 flex items-center justify-between gap-2">
-          <div
-            className="text-[11px] uppercase tracking-[0.18em] text-silver-200/85 truncate"
-            title={doc.title}
-          >
-            {doc.title}
-          </div>
-          {doc.pageCount > 1 ? (
-            <div className="text-[10px] font-mono text-silver-300/70 shrink-0">
-              {pageNumber}/{doc.pageCount}
-            </div>
-          ) : null}
         </div>
       </motion.div>
     </div>

@@ -42,6 +42,7 @@ export function PdfPage({
     );
     if (!layer) return;
     applyHighlights(layer, highlights);
+    requestAnimationFrame(() => staggerHighlightMarks(layer));
   }, [highlights, pageNumber, url, width]);
 
   return (
@@ -57,7 +58,10 @@ export function PdfPage({
               const layer = containerRef.current.querySelector<HTMLElement>(
                 ".react-pdf__Page__textContent",
               );
-              if (layer) applyHighlights(layer, highlights);
+              if (layer) {
+                applyHighlights(layer, highlights);
+                requestAnimationFrame(() => staggerHighlightMarks(layer));
+              }
             }
             onPageRendered?.();
           }}
@@ -70,7 +74,7 @@ export function PdfPage({
 function PageSkeleton({ width }: { width: number }) {
   return (
     <div
-      className="bg-paper rounded-sm shadow-page animate-pulse"
+      className="bg-paper rounded-none shadow-page animate-pulse"
       style={{ width, height: width * 1.294, opacity: 0.55 }}
     />
   );
@@ -78,7 +82,7 @@ function PageSkeleton({ width }: { width: number }) {
 
 function PageError() {
   return (
-    <div className="bg-paper text-ink p-4 rounded-sm text-xs">
+    <div className="bg-paper text-ink p-4 rounded-none text-xs">
       Couldn't render this page.
     </div>
   );
@@ -94,6 +98,52 @@ function PageError() {
  * so we first concatenate, find the match in the flat text, then map back to
  * span ranges.
  */
+/** ~pdf text line bucket (px); groups marks onto the same baseline band */
+const HL_LINE_BUCKET = 11;
+const HL_BETWEEN_LINES_MS = 160;
+const HL_MARK_STAGGER_MS = 58;
+const HL_WIPE_S = 0.52;
+
+/** Left-to-right within each line; next line waits for the prior line's wipes to settle. */
+function staggerHighlightMarks(layer: HTMLElement) {
+  const marks = Array.from(layer.querySelectorAll<HTMLElement>("mark.hl-mark"));
+  if (marks.length === 0) return;
+
+  layer.getBoundingClientRect();
+  const layerTop = layer.getBoundingClientRect().top;
+
+  type Scored = { el: HTMLElement; band: number };
+  const scored: Scored[] = marks.map((el) => {
+    const r = el.getBoundingClientRect();
+    const relTop = r.top - layerTop;
+    const band = Math.round(relTop / HL_LINE_BUCKET);
+    return { el, band };
+  });
+
+  const byBand = new Map<number, HTMLElement[]>();
+  for (const s of scored) {
+    const row = byBand.get(s.band) ?? [];
+    row.push(s.el);
+    byBand.set(s.band, row);
+  }
+
+  const bands = [...byBand.keys()].sort((a, b) => a - b);
+  let tOffset = 0;
+  const wipeMs = HL_WIPE_S * 1000;
+
+  bands.forEach((band, bi) => {
+    const row = byBand.get(band)!;
+    row.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    row.forEach((el, mi) => {
+      const delayMs = tOffset + mi * HL_MARK_STAGGER_MS;
+      el.style.setProperty("--hl-delay", `${delayMs}ms`);
+      el.style.setProperty("--hl-duration", `${HL_WIPE_S}s`);
+    });
+    const lineSpanMs = Math.max(0, row.length - 1) * HL_MARK_STAGGER_MS + wipeMs;
+    tOffset += lineSpanMs + (bi < bands.length - 1 ? HL_BETWEEN_LINES_MS : 0);
+  });
+}
+
 function applyHighlights(layer: HTMLElement, highlights: Highlight[]) {
   // Reset: remove existing marks
   layer.querySelectorAll("mark.hl-mark").forEach((mark) => {

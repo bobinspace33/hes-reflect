@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 const LETTER_ASPECT = 8.5 / 11; // width / height = 0.7727
-const META_HEIGHT = 34; // title strip + shadow under page
+/** Padding for shadow beneath page (no persistent title strip below). */
+const META_HEIGHT = 22;
 const CARD_MIN = 120;
 const CARD_MAX = 300;
 

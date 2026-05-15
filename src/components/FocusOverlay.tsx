@@ -95,18 +95,18 @@ export function FocusOverlay({
           onClick={close}
         >
           <motion.div
-            className="absolute inset-0"
+            className="absolute inset-0 z-0 bg-[rgba(13,12,10,0.42)] backdrop-blur-[18px]"
             style={{
-              background:
-                "radial-gradient(ellipse at center, rgba(13,12,10,0.65) 0%, rgba(13,12,10,0.92) 80%)",
-              backdropFilter: "blur(6px)",
+              backdropFilter: "blur(22px)",
+              WebkitBackdropFilter: "blur(22px)",
             }}
+            aria-hidden
           />
 
           {/* Page */}
           <motion.div
             layoutId={`doc-${doc.id}`}
-            className="relative bg-paper rounded-sm shadow-page-lift overflow-hidden"
+            className="relative z-10 isolate bg-paper rounded-none shadow-page-lift overflow-hidden opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               advance(1);
@@ -134,7 +134,7 @@ export function FocusOverlay({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ delay: 0.15 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 frosted-dark rounded-full px-3 py-2 flex items-center gap-2 text-silver-100 z-10"
+            className="absolute bottom-8 left-1/2 z-30 -translate-x-1/2 frosted-dark rounded-full px-3 py-2 flex items-center gap-2 text-silver-100"
             onClick={(e) => e.stopPropagation()}
           >
             {doc.pageCount > 1 ? (
@@ -188,7 +188,7 @@ export function FocusOverlay({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="absolute top-8 left-1/2 -translate-x-1/2 frosted-dark px-4 py-2 rounded-full text-silver-100 text-xs uppercase tracking-[0.18em] max-w-[80vw] truncate"
+            className="absolute top-8 left-1/2 z-30 -translate-x-1/2 frosted-dark px-4 py-2 rounded-full text-silver-100 text-xs uppercase tracking-[0.18em] max-w-[80vw] truncate"
           >
             {doc.title}
           </motion.div>

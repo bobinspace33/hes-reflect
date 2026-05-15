@@ -65,13 +65,15 @@ export function MainExperience({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-10 flex flex-col overflow-hidden">
       <header className="pt-5 pb-3 text-center select-none shrink-0">
-        <h1 className="text-silver-100 text-xl md:text-2xl font-light tracking-[0.18em] uppercase">
-          HES <span className="text-gold-300">Reflection</span>
+        <h1 className="text-silver-100 text-lg sm:text-xl md:text-2xl font-light tracking-[0.08em] sm:tracking-[0.12em] md:tracking-[0.14em] uppercase">
+          DGMD-E57 <span className="text-gold-300">Reflection</span>
+          <span className="text-silver-200"> • </span>
+          Bob Kelly
         </h1>
-        <p className="text-silver-300/55 text-[10px] font-mono tracking-[0.22em] uppercase mt-1.5">
-          A reading in process · hover edges to browse · wheel zoom on page
+        <p className="text-silver-700 font-mono text-[10px] tracking-[0.22em] uppercase mt-1.5">
+          select reflection artifacts · hover edges to browse · select theme to view reflections
         </p>
       </header>
 

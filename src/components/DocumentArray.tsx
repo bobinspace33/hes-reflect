@@ -1,16 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { LayoutGroup, motion } from "framer-motion";
 import { useUI } from "@/store/ui";
 import { DocumentCard } from "@/components/DocumentCard";
 import { useCarouselLayout } from "@/lib/useFitLayout";
 import type { DocumentRecord, ThemeWithSources, HighlightHit } from "@/types";
 import type { Highlight } from "@/components/PdfPage";
-import { THEME_PALETTE } from "@/lib/colors";
+import { THEME_PALETTE, themeMarkerColor } from "@/lib/colors";
 
 const EDGE_ZONE_VW = 0.16; // fraction of viewport width per side
 const EDGE_MAX_PX = 140;
 const SCROLL_PX_PER_SEC = 420;
+const CARD_MIN_SPREAD = 120;
+const CARD_MAX_SPREAD = 300;
+const SPREAD_GAP_PX = 40;
+/** Letter page visual height multiplier (aligned with PdfPage/PageSkeleton proportion). */
+const PHANTOM_PAGE_RATIO = 1.294134;
 
 export function DocumentArray({
   documents,
@@ -39,10 +45,66 @@ export function DocumentArray({
     return set;
   }, [activeTheme, searchHits]);
 
+  /** Lowest page cited for each document in the active theme (highlights attach per page). */
+  const themeLandingPageByDoc = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!activeTheme) return m;
+    for (const s of activeTheme.sources) {
+      const prev = m.get(s.documentId);
+      if (prev === undefined || s.pageNumber < prev) {
+        m.set(s.documentId, s.pageNumber);
+      }
+    }
+    return m;
+  }, [activeTheme]);
+
+  const emphasisGlow = useMemo(() => {
+    if (activeTheme) return THEME_PALETTE[activeTheme.color].glow;
+    if (searchHits.length > 0) return THEME_PALETTE.yellow.glow;
+    return "rgba(212, 186, 116, 0.35)";
+  }, [activeTheme, searchHits.length]);
+
+  /** Theme picker: cite-only row, centered strip with gaps (no fan overlap). */
+  const spreadTheme =
+    !!(activeTheme && emphasizedIds.size > 0 && searchHits.length === 0);
+
+  const emphasizedOrdered = useMemo(
+    () => documents.filter((d) => emphasizedIds.has(d.id)),
+    [documents, emphasizedIds],
+  );
+
+  const [containerInnerWidth, setContainerInnerWidth] = useState(1024);
+
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const measure = () =>
+      setContainerInnerWidth(Math.max(0, Math.floor(node.getBoundingClientRect().width)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  const spreadCardWidth = useMemo(() => {
+    const n = emphasizedOrdered.length;
+    if (n <= 0) return cardWidth;
+    const horizonPad = 56;
+    const avail = Math.max(240, containerInnerWidth - horizonPad);
+    const gaps = SPREAD_GAP_PX * Math.max(0, n - 1);
+    const per = Math.floor((avail - gaps) / n);
+    return Math.min(
+      CARD_MAX_SPREAD,
+      Math.max(CARD_MIN_SPREAD, Math.max(per, Math.round(cardWidth * 1.08))),
+    );
+  }, [emphasizedOrdered.length, containerInnerWidth, cardWidth]);
+
+  const cardAnchorsRef = useRef(new Map<string, HTMLDivElement | null>());
+
   const highlightsFor = (documentId: string, page: number): Highlight[] => {
     const result: Highlight[] = [];
     if (activeTheme) {
-      const color = THEME_PALETTE[activeTheme.color].highlight;
+      const color = themeMarkerColor(activeTheme.color);
       for (const s of activeTheme.sources) {
         if (s.documentId === documentId && s.pageNumber === page) {
           result.push({ quote: s.quote, color });
@@ -50,7 +112,7 @@ export function DocumentArray({
       }
     }
     if (searchHits.length > 0 && !activeTheme) {
-      const color = THEME_PALETTE.yellow.highlight;
+      const color = themeMarkerColor("yellow");
       for (const h of searchHits) {
         if (h.documentId === documentId && h.pageNumber === page) {
           result.push({ quote: h.quote, color });
@@ -87,13 +149,26 @@ export function DocumentArray({
     };
   }, []);
 
-  // Center horizontally when dimensions or document lineup change (not theme highlights)
+  // Center carousel strip (backdrop fan). When spreading theme, cites move to overlay but phantom row keeps geometry.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || documents.length === 0) return;
     const max = el.scrollWidth - el.clientWidth;
     if (max > 0) el.scrollLeft = max / 2;
-  }, [docIdsKey, cardWidth, overlap]);
+  }, [docIdsKey, cardWidth, overlap, spreadTheme]);
+
+  // When a theme is chosen, gently bring the first cited document toward center view (carousel only).
+  useLayoutEffect(() => {
+    if (spreadTheme || !activeTheme || activeTheme.sources.length === 0) return;
+    const cited = new Set(activeTheme.sources.map((s) => s.documentId));
+    const anchorDoc = documents.find((d) => cited.has(d.id));
+    if (!anchorDoc) return;
+    const el = cardAnchorsRef.current.get(anchorDoc.id);
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+  }, [activeThemeId, activeTheme, documents, docIdsKey, spreadTheme]);
 
   const setEdgeDir = useCallback((dir: number) => {
     scrollDir.current = dir;
@@ -126,62 +201,162 @@ export function DocumentArray({
       role="presentation"
     >
       <div className="relative flex-1 min-h-0 w-full min-w-0">
-        {/* Left autoscroll zone (mouse hover only; does not steal focus / tab order) */}
+        {/* Edge-hover autoscroll — works for blurred fan beneath theme cites too */}
         <div
           role="presentation"
           aria-hidden
-          className="absolute left-0 top-0 bottom-0 z-[25] cursor-w-resize bg-gradient-to-r from-black/55 via-black/25 to-transparent"
+          className="absolute left-0 top-0 bottom-0 z-[25] cursor-w-resize bg-transparent"
           style={{ width: edgeWidth }}
           onMouseEnter={() => setEdgeDir(-1)}
           onMouseLeave={() => setEdgeDir(0)}
         />
-
-        {/* Right autoscroll zone */}
         <div
           role="presentation"
           aria-hidden
-          className="absolute right-0 top-0 bottom-0 z-[25] cursor-e-resize bg-gradient-to-l from-black/55 via-black/25 to-transparent"
+          className="absolute right-0 top-0 bottom-0 z-[25] cursor-e-resize bg-transparent"
           style={{ width: edgeWidth }}
           onMouseEnter={() => setEdgeDir(1)}
           onMouseLeave={() => setEdgeDir(0)}
         />
 
+        {/* Backdrop: full carousel order; cites become ghost slots so neighbors stay overlapped */}
         <div
           ref={scrollRef}
-          className="h-full w-full overflow-x-auto overflow-y-hidden overscroll-x-contain carousel-hide-scrollbar touch-pan-x"
+          className="relative z-10 h-full w-full overflow-x-auto overflow-y-hidden overscroll-x-contain carousel-hide-scrollbar touch-pan-x"
           onWheel={onCarouselWheel}
         >
-          <div
-            className="flex flex-row items-end justify-center min-h-full py-1"
-            style={{
-              width: "max-content",
-              marginLeft: "auto",
-              marginRight: "auto",
-              paddingLeft: "max(8vw, 2rem)",
-              paddingRight: "max(8vw, 2rem)",
-            }}
-          >
-            {documents.map((doc, idx) => (
-              <div
-                key={doc.id}
-                className="relative flex-shrink-0"
-                style={{
-                  marginLeft: idx > 0 ? -overlap : 0,
-                  zIndex: idx + 1,
-                }}
-              >
-                <DocumentCard
-                  doc={doc}
-                  index={idx}
-                  cardWidth={cardWidth}
-                  emphasized={emphasizedIds.has(doc.id)}
-                  dimmed={anyEmphasized && !emphasizedIds.has(doc.id)}
-                  highlightsForPage={(page) => highlightsFor(doc.id, page)}
-                />
-              </div>
-            ))}
-          </div>
+          <LayoutGroup id="documents-stage">
+            <motion.div
+              layoutRoot
+              className="flex min-h-full flex-row items-end justify-center px-2 pb-9 pt-20"
+              style={{
+                width: "max-content",
+                marginLeft: "auto",
+                marginRight: "auto",
+                paddingLeft: "max(8vw, 2rem)",
+                paddingRight: "max(8vw, 2rem)",
+              }}
+              transition={{
+                layout: { type: "spring", stiffness: 340, damping: 34 },
+              }}
+            >
+              {documents.map((doc, idx) => {
+                const globalIndex = idx;
+                const cw = cardWidth;
+                const isCitedSpot = spreadTheme && emphasizedIds.has(doc.id);
+
+                return (
+                  <motion.div
+                    key={doc.id}
+                    layout
+                    transition={{
+                      layout: { type: "spring", stiffness: 340, damping: 34 },
+                    }}
+                    ref={(node) => {
+                      if (isCitedSpot) {
+                        cardAnchorsRef.current.delete(doc.id);
+                        return;
+                      }
+                      if (node) cardAnchorsRef.current.set(doc.id, node);
+                      else cardAnchorsRef.current.delete(doc.id);
+                    }}
+                    className={
+                      "relative shrink-0 " + (isCitedSpot ? "pointer-events-none" : "")
+                    }
+                    style={{
+                      marginLeft: idx > 0 ? -overlap : 0,
+                      zIndex: globalIndex + 1,
+                    }}
+                  >
+                    {isCitedSpot ? (
+                      <motion.div
+                        layout
+                        className="rounded-none border border-black/14 bg-gradient-to-b from-paper/85 to-black/55 shadow-page"
+                        aria-hidden
+                        style={{
+                          width: cw,
+                          height: Math.round(cw * PHANTOM_PAGE_RATIO),
+                          filter: "blur(5px)",
+                          opacity: 0.45,
+                          boxShadow:
+                            "0 18px 40px -14px rgba(20,14,4,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
+                        }}
+                      />
+                    ) : (
+                      <DocumentCard
+                        doc={doc}
+                        index={globalIndex}
+                        cardWidth={cw}
+                        spreadLayout={false}
+                        emphasized={!spreadTheme && emphasizedIds.has(doc.id)}
+                        dimmed={
+                          spreadTheme
+                            ? !emphasizedIds.has(doc.id)
+                            : anyEmphasized && !emphasizedIds.has(doc.id)
+                        }
+                        highlightsForPage={(page) => highlightsFor(doc.id, page)}
+                        themeRevealSignal={activeThemeId}
+                        themeLandingPage={
+                          activeTheme ? (themeLandingPageByDoc.get(doc.id) ?? null) : null
+                        }
+                        emphasisGlow={emphasisGlow}
+                      />
+                    )}
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </LayoutGroup>
         </div>
+
+        {/* Foreground: cited artifacts centered, enlarged, gaps — singles source of Pdf for each */}
+        {spreadTheme ? (
+          <div className="pointer-events-none absolute inset-0 z-[38] flex items-end justify-center pb-14 pt-[4.5rem]">
+            <motion.div
+              layout
+              className="flex flex-row flex-wrap items-end justify-center px-6"
+              style={{
+                gap: SPREAD_GAP_PX,
+              }}
+              transition={{
+                layout: { type: "spring", stiffness: 340, damping: 34 },
+              }}
+            >
+              {emphasizedOrdered.map((doc) => {
+                const globalIndex = documents.findIndex((d) => d.id === doc.id);
+                const idxForAnim = globalIndex >= 0 ? globalIndex : 0;
+                return (
+                  <motion.div
+                    key={`spread-${doc.id}`}
+                    layout
+                    transition={{
+                      layout: { type: "spring", stiffness: 340, damping: 34 },
+                    }}
+                    className="pointer-events-auto shrink-0"
+                    style={{
+                      zIndex: Math.max(documents.length, 40) + idxForAnim + 2,
+                    }}
+                  >
+                    <DocumentCard
+                      doc={doc}
+                      index={idxForAnim}
+                      cardWidth={spreadCardWidth}
+                      spreadLayout
+                      emphasized
+                      dimmed={false}
+                      highlightsForPage={(page) => highlightsFor(doc.id, page)}
+                      themeRevealSignal={activeThemeId}
+                      themeLandingPage={
+                        activeTheme ? (themeLandingPageByDoc.get(doc.id) ?? null) : null
+                      }
+                      emphasisGlow={emphasisGlow}
+                    />
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -196,7 +371,7 @@ export function getDocumentHighlightsFn(
     const result: Highlight[] = [];
     const activeTheme = themes.find((t) => t.id === activeThemeId) ?? null;
     if (activeTheme) {
-      const color = THEME_PALETTE[activeTheme.color].highlight;
+      const color = themeMarkerColor(activeTheme.color);
       for (const s of activeTheme.sources) {
         if (s.documentId === documentId && s.pageNumber === page) {
           result.push({ quote: s.quote, color });
@@ -204,7 +379,7 @@ export function getDocumentHighlightsFn(
       }
     }
     if (searchHits.length > 0 && !activeTheme) {
-      const color = THEME_PALETTE.yellow.highlight;
+      const color = themeMarkerColor("yellow");
       for (const h of searchHits) {
         if (h.documentId === documentId && h.pageNumber === page) {
           result.push({ quote: h.quote, color });
