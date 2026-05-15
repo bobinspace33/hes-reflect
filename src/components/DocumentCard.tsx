@@ -117,7 +117,7 @@ export function DocumentCard({
       // Only intercept when card is being hovered, otherwise let page scroll.
       if (!hovered) return;
       e.preventDefault();
-      const delta = -e.deltaY * 0.0015;
+      const delta = e.deltaY * 0.0015;
       setWheelZoom((z) => Math.min(1.5, Math.max(1, z + delta)));
     };
     node.addEventListener("wheel", handler, { passive: false });

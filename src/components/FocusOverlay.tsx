@@ -64,7 +64,7 @@ export function FocusOverlay({
     if (!node) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = -e.deltaY * 0.0015;
+      const delta = e.deltaY * 0.0015;
       setScale((s) => s + delta);
     };
     node.addEventListener("wheel", handler, { passive: false });

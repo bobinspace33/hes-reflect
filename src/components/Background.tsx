@@ -54,7 +54,6 @@ export function Background({ src }: { src?: string }) {
           opacity: resolved ? 1 : 0,
         }}
       />
-      <div className="shimmer-overlay" />
       <div className="grain-overlay" />
     </div>
   );
