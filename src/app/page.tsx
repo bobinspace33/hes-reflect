@@ -8,6 +8,7 @@ import {
 import { loadSeedAsDemoData } from "@/lib/demo";
 import { Background } from "@/components/Background";
 import { MainExperience } from "@/components/MainExperience";
+import { SiteAmbientMusic } from "@/components/SiteAmbientMusic";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,14 @@ export default async function HomePage() {
 
   return (
     <main className="isolate relative h-screen w-screen overflow-hidden">
-      <Background src={backgroundImageUrl.trim() || undefined} />
+      <Background
+        src={
+          backgroundImageUrl.trim()
+            ? "/api/site/background-image"
+            : undefined
+        }
+      />
+      <SiteAmbientMusic />
       <Suspense>
         <MainExperience
           documents={documents}

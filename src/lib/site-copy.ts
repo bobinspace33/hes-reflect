@@ -7,6 +7,9 @@ export const SITE_CLOSING_COMMENTARY_KEY = "closing_commentary" as const;
 /** Vercel Blob URL for full-page background — set via Admin upload or cleared to use defaults. */
 export const SITE_BACKGROUND_IMAGE_KEY = "background_image" as const;
 
+/** Same-origin route that streams the background (required when Blob store is private). */
+export const SITE_BACKGROUND_IMAGE_PROXY_PATH = "/api/site/background-image" as const;
+
 export type SiteStringKey =
   | typeof SITE_INTRODUCTION_KEY
   | typeof SITE_CLOSING_COMMENTARY_KEY

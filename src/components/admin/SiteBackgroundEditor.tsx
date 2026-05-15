@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
-import { SITE_BACKGROUND_IMAGE_KEY } from "@/lib/site-copy";
+import {
+  SITE_BACKGROUND_IMAGE_KEY,
+  SITE_BACKGROUND_IMAGE_PROXY_PATH,
+} from "@/lib/site-copy";
 
 export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [preview, setPreview] = useState(initialUrl.trim());
 
-  useEffect(() => {
-    setPreview(initialUrl.trim());
-  }, [initialUrl]);
+  const hasCustom = initialUrl.trim().length > 0;
 
   async function onFile(f: File | null) {
     if (!f) return;
@@ -24,9 +24,15 @@ export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
       const fd = new FormData();
       fd.set("file", f);
       const res = await fetch("/api/admin/background/upload", { method: "POST", body: fd });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || "Upload failed");
-      setPreview(j.url);
+      let j: { ok?: boolean; error?: string } = {};
+      try {
+        j = await res.json();
+      } catch {
+        throw new Error(`Upload failed (HTTP ${res.status}).`);
+      }
+      if (!res.ok || !j.ok) {
+        throw new Error(j.error || `Upload failed (${res.status}).`);
+      }
       router.refresh();
     } catch (e) {
       setErr((e as Error).message);
@@ -46,7 +52,6 @@ export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Clear failed");
-      setPreview("");
       router.refresh();
     } catch (e) {
       setErr((e as Error).message);
@@ -61,8 +66,9 @@ export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
         <div>
           <h3 className="font-medium text-silver-50">Background image</h3>
           <p className="text-silver-300/55 text-xs font-mono mt-1 max-w-xl">
-            Full-page backdrop behind the experience (stored on Vercel Blob). Clearing restores the
-            built-in fallback images from <code className="text-gold-200/90">/public/backgrounds</code>.
+            Stored on Vercel Blob (private store). The site loads it through{" "}
+            <code className="text-gold-200/90">{SITE_BACKGROUND_IMAGE_PROXY_PATH}</code>. Clearing
+            restores built-in images from <code className="text-gold-200/90">/public/backgrounds</code>.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -84,7 +90,7 @@ export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
           <button
             type="button"
             onClick={() => void clearBackground()}
-            disabled={!preview || clearing || uploading}
+            disabled={!hasCustom || clearing || uploading}
             className="flex items-center gap-2 px-4 py-2 rounded-md border border-silver-600 text-silver-200 text-sm hover:bg-silver-700/50 disabled:opacity-40"
           >
             {clearing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
@@ -97,15 +103,26 @@ export function SiteBackgroundEditor({ initialUrl }: { initialUrl: string }) {
 
       <div className="mt-4 flex gap-4 items-start">
         <div className="w-40 h-24 rounded-lg border border-silver-700 overflow-hidden bg-silver-900 shrink-0 flex items-center justify-center">
-          {preview ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin preview of uploaded blob URL
-            <img src={preview} alt="" className="w-full h-full object-cover" />
+          {hasCustom ? (
+            // eslint-disable-next-line @next/next/no-img-element — proxied Blob stream, same-origin
+            <img
+              key={initialUrl.trim().slice(-24)}
+              src={SITE_BACKGROUND_IMAGE_PROXY_PATH}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           ) : (
             <ImageIcon className="text-silver-600" size={28} />
           )}
         </div>
         <p className="text-[10px] font-mono text-silver-400 break-all pt-1">
-          {preview || "No custom image — site uses local fallback order."}
+          {hasCustom ? (
+            <>
+              Blob object URL (reference only): <span className="text-silver-500">{initialUrl}</span>
+            </>
+          ) : (
+            "No custom image — site uses local fallback order."
+          )}
         </p>
       </div>
     </div>
