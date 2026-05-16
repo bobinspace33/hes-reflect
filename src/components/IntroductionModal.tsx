@@ -17,11 +17,11 @@ export function IntroductionModal({ body }: { body: string }) {
       {open ? (
         <motion.aside
           key="intro"
-          initial={{ x: "110%", opacity: 0 }}
+          initial={{ x: "-110%", opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: "110%", opacity: 0 }}
+          exit={{ x: "-110%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 180, damping: 24 }}
-          className="fixed top-6 right-6 bottom-6 w-[420px] max-w-[92vw] z-[55] flex flex-col rounded-2xl overflow-hidden frosted-dark"
+          className="fixed top-6 left-6 bottom-6 z-[55] flex flex-col rounded-2xl overflow-hidden frosted-dark w-[min(92vw,max(300px,33.333vw))]"
           style={{
             boxShadow: `0 30px 80px -10px rgba(0,0,0,0.55), inset 0 1px 0 ${palette.accent}33`,
           }}
